@@ -1194,18 +1194,7 @@ addEvent(function(...)
 			"SPELL_UPDATE_COOLDOWN"
 			)
 
-					
-			
-			--[[ Some git testing'
-			ae;tae
-			]]--
-			
-			--Adding some stuff for a second test
-			
-			
-			
-			
-			
+
 			
 			
 			
