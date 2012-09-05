@@ -1194,11 +1194,6 @@ addEvent(function(...)
 			"SPELL_UPDATE_COOLDOWN"
 			)
 
-					
-			
-			
-			
-			
 			
 			
 			
