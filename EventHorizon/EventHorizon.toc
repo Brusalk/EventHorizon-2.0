@@ -1,0 +1,17 @@
+## Interface: 50000
+## Title: EventHorizon
+## Author: Brusalk (Originally by Taroven)
+## Version: 1.9.5
+## Dependencies:
+## OptDeps: SharedMedia
+## SavedVariables: EventHorizonDBG
+## SavedVariablesPerCharacter: EventHorizonDB
+
+
+EventHorizon.lua
+
+config.lua
+myconfig.lua
+
+trinkets.lua
+
