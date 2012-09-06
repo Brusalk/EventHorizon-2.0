@@ -1,6 +1,7 @@
 local DEBUG = true
 local EHN,ns = ...
 EventHorizon = ns
+EH = ns
 
 
 ns.frame = CreateFrame("frame") -- eventFrame + vars holder
@@ -14,9 +15,10 @@ local errors = {}
 
 
 -- [[ UTILITY FUNCTIONS ]] --
+local printBlizz = print
 local function printhelp(...) if select('#',...)>0 then return tostring((select(1,...))), printhelp(select(2,...)) end end
 local function print(...)
-	ChatFrame1:AddMessage('EventHorizon: '.. strjoin(" ", printhelp(...)))
+	printBlizz('EventHorizon: '.. strjoin(" ", printhelp(...)))
 end
 
 function round(num, idp)
@@ -53,11 +55,13 @@ end
 --  Returns: Table of entries where t2>t1>def
 addError("mergeDef", {inputs = "one or more of inputs def, t1 are not defined"})
 local function mergeDef(def, t1, t2)
+
 	if not def or not t1 then error("mergeDef", "inputs") return end
 	local tmp = {}
 	for i,v in pairs(def) do
 		if t2 and (t2[i] or t2[i] == false) then -- t2 is actually an optional table.
 			tmp[i] = t2[i]
+			--print("Overwriting value ", i, " with value ", v, " from myconfig.lua")
 		elseif t1[i] or t1[i] == false then -- Be sure to include values of false as well. 
 			tmp[i] = t1[i]
 		else
@@ -151,6 +155,7 @@ end
 
 addError("getColor", {inputs = "color information must be a table of {r,g,b,a} or {true, burn%, alpha} for class colored"})
 local function getColor(key)
+	print(key, " : ", ns.colors[key])
 	if not key or not ns.colors[key] or type(ns.colors[key]) ~= "table" or #ns.colors[key]<3 or #ns.colors[key]>4 then error("getColor", "inputs") return end
 	local classColor = RAID_CLASS_COLORS[select(2,UnitClass("player"))]
 	if ns.colors[key][1] == true then -- Class coloring/burn/alpha
@@ -174,6 +179,9 @@ end
 -- [[ SCOPE TABLES AND VARS ]] --
 
 ns.defaultConfig = {
+	-- Position
+	anchor = {"CENTER", UIParent, "CENTER"},
+
 	--Bar Options
 	height = 300,        		-- Height of the total frame. EH will now automatically resize the height of spellBars depending on how many are active
 	width = 500,        		-- Width of the total frame. (This includes the actual spellBar, as well as the icon) 
@@ -240,7 +248,7 @@ ns.defaultBlendModes = {
 	buff = "ADD",	
 	nowline = "ADD",
 	bg = "BLEND", 				
-	barbg = "BLEND",          
+	barBackground = "BLEND",          
 	border = "BLEND",		
 	gcd = "BLEND",				-- If setup to have a moving line rather than functioning like a cast, inheirits off of this
 	gcdLine = "ADD",   			-- This is for the line 1 GCD in the future if enabled.
@@ -278,7 +286,7 @@ ns.defaultLayouts = {
 		top = 0,
 		bottom = 1,
 	},	
-	barbg = {
+	barBackground = {
 		top = 0,
 		bottom = 1,
 	},	         
@@ -310,7 +318,6 @@ ns.config = mergeDef(ns.defaultConfig, ns.cConfig, ns.pConfig) -- default: defau
 ns.colors = mergeDef(ns.defaultColors, ns.cColors, ns.pColors)
 ns.blendModes = mergeDef(ns.defaultBlendModes, ns.cBlendModes, ns.pBlendModes)
 ns.layouts = mergeDef(ns.defaultLayouts, ns.cLayouts, ns.pLayouts)
-
 
 
 -- [[ CORE TABLES ]] --
@@ -419,58 +426,33 @@ local function getIconForSpellbar(spellbar)
 	end
 	
 	
-	local debuff, cast, cooldown, buff
+	local debuff, buff
+	-- Debuff is always a table. can be a table of a table of 2 vals or a table of 2 vals. default is {0,0}
+	-- Buff is same as debuff
+	-- cooldown is always a table of numbers. Default is {}
+	-- cast is always a table of numbers. Default is {}
 	
-	if type(c.debuff) == "table" then
-		if type(c.debuff[1]) == "table" then -- We have more than one debuff defined. Form: debuff = { {spellID, unhasted tick time}, {spellID2, unhasted tick time 2} },
-			if type(c.debuff[1][1]) == "number" then
-				debuff = c.debuff[1][1]
-			end
-		else								 -- We have only one debuff defined. Form: debuff = {spellID, unhasted tick time}
-			if type(c.debuff[1]) == "number" then
-				debuff = c.debuff[1]
-		end
-	elseif type(c.debuff) == "number" then 	 -- We have only a spellID defined. (no ticks)
-		debuff = c.debuff
-	end
-		
-	cast = c.cast and c.cast
-	if type(cast) == "table" then
-		cast = cast[1]
-	end	
+	-- Priority: Debuff>Cooldown>Buff>Cast. One of these three has to be on the bar.. so
 	
-	cooldown = c.cooldown and c.cooldown or nil
-	if type(cooldown) == "table" then
-		for i,v in ipairs(cooldown) do
-			local known = IsSpellKnown(v)
-			local usable = IsUsableSpell(v)
-			if known and usable then
-				cooldown = v
-			end
-				-- unfortunately impossible to distinguish between unknown spells and the spell which a spell transforms to
-		end
-		if type(cooldown) == "table" then -- No active cooldown spells to use, so pass over it
-			cooldown = nil
-		end
+	-- Debuff:
+	if type(c.debuff[1]) == "table" then -- We have more than one debuff. Pick the first
+		debuff = c.debuff[1][1]
+	elseif c.debuff[1] ~= 0 then
+		debuff = c.debuff[1] -- Just one debuff.
 	end
 	
-	if type(c.buff) == "table" then
-		if type(c.buff[1]) == "table" then -- We have more than one buff defined. Form: buff = { {spellID, unhasted tick time}, {spellID2, unhasted tick time 2} },
-			if type(c.buff[1][1]) == "number" then
-				buff = c.buff[1][1]
-			end
-		else								 -- We have only one buff defined. Form: buff = {spellID, unhasted tick time}
-			if type(c.buff[1]) == "number" then
-				buff = c.buff[1]
-		end
-	elseif type(c.buff) == "number" then 	 -- We have only a spellID defined. (no ticks)
-		buff = c.buff
+	-- Buff:
+	if type(c.buff[1]) == "table" then -- We have more than one buff. Pick the first
+		buff = c.buff[1][1]
+	elseif c.buff[1] ~= 0 then
+		buff = c.buff[1]
 	end
+	
 	
 	
 	
 	--print"Done with bar"
-	return debuff or cast or buff or cooldown
+	return debuff or c.cooldown[1] or buff or c.cast[1]
 end
 
 
@@ -503,7 +485,7 @@ local function updateSpellbarSettings(self)
 		end
 		self.icon.stacks:SetPoint(ns.config.stackPosition[1], self.icon, ns.config.stackPosition[1], ns.config.stackPosition[2], ns.config.stackPosition[3]) -- slightly offset inside the icon
 
-		self.icon.stacks:SetVertexColor(unpack(c.stackColor))
+		self.icon.stacks:SetVertexColor(c.stackColor and unpack(c.stackColor) or unpack({1,1,1,1}))
 		
 		updateIcon(self)
 	else
@@ -527,9 +509,9 @@ local function updateSpellbarSettings(self)
 	-- self.buff:SetBlendMode(ns.blendModes.buff)
 	
 	self.bar.texture:SetTexture(ns.config.barTexture)
-	self.bar.texture:SetVertexColor(getColor("barbg"))
-	--print(getColor("barbg"))
-	self.bar.texture:SetBlendMode(ns.blendModes.barbg)
+	self.bar.texture:SetVertexColor(getColor("barBackground"))
+	--print(getColor("barBackground"))
+	self.bar.texture:SetBlendMode(ns.blendModes.barBackground)
 
 	--Done Updating Spellbar self
 
@@ -684,11 +666,11 @@ function ns:newSpell(spellConfig)
 
 	--buff
 	if type(spellConfig.buff) == "number" then
-		spellConfig.buff = {spellConfig.buff}
+		spellConfig.buff = {spellConfig.buff,0}
 	elseif spellConfig.buff == nil then
-		spellConfig.buff = {}
+		spellConfig.buff = {0,0}
 	elseif type(spellConfig.buff) ~= "table" then
-		spellConfig.buff = {} -- makes it easy. Don't have to deal with existance checking this way
+		spellConfig.buff = {0,0} -- makes it easy. Don't have to deal with existance checking this way
 		error("newSpell", "buff")
 	end
 	if type(spellConfig.buff[1]) == "table" then -- We have buff = { {spellID1, unhasted ticks}, {spellID2, unhasted ticks 2} }
@@ -703,7 +685,7 @@ function ns:newSpell(spellConfig)
 		table.insert(ns.spellbars.buff[spellConfig.buff[1]], spellbar)
 	end
 	
-	--unitID
+	--[[unitID
 	if type(spellConfig.unitID) == "string" then -- unitId can be either a string of 1 unitID in which case both debuff and buff will check that unit, a table of unitIDs of the form {debuffUnitID, buffUnitID} or nil, in which case it defaults to target for both
 		spellConfig.unitID = {spellConfig.unitID,spellConfig.unitID}
 	elseif type(spellConfig.unitID) ~= "table" then
@@ -716,7 +698,8 @@ function ns:newSpell(spellConfig)
 	end
 	ns.spellbars.unitID[v] = ns.spellbars.unitID[v] or {}
 	table.insert(ns.spellbars.unitID[v], spellbar)
-	
+	--]] 
+	spellConfig.unitID = nil
 	
 		--stance
 	if type(spellConfig.stance) == "number" then
@@ -1058,39 +1041,68 @@ function ns:addCooldown(spellbar, endTime)
 end
 
 
-local textures = {
-	num = 0,
+EHtextures = {
+	numFree = 0,
+	numUsed = 0,
 	free = {},
 	used = {},
 }
-function ns:getTempTexture(parent) -- This can save some processing time/garbage collection time when creating/using lots of textures
-	local texture
-	if not textures.free[1] then
-		texture = ns.frame:CreateTexture("EventHorizonTexture"..(textures.num))
-		textures.num = textures.num+1
-		print("Made new texture", texture:GetName())
-	else
-		texture = textures.free[1]
-		table.remove(textures.free, 1)
-	end
-	table.insert(textures.used, texture)
 
-	texture:SetParent(parent)
-	print("Gave Texture: ", texture:GetName())
-	return texture
+local textures = EHtextures
+function ns:getTempTexture(parent)
+	local texture
+		if textures.free[textures.numFree] then -- Check if we have a free texture to use. (Pull from the end to make it easy)
+		texture = textures.free[textures.numFree]
+		textures.free[textures.numFree] = nil
+		table.insert(textures.used, texture)
+		textures.numFree = textures.numFree - 1
+		textures.numUsed = textures.numUsed + 1
+		print("Gave premade texture ", texture.name)
+	else -- We have to make a new texture
+		texture = ns.frame:CreateTexture("EventHorizon_Texture"..(textures.numFree + textures.numUsed + 1))
+		texture.name = "EventHorizon_Texture"..(textures.numFree + textures.numUsed + 1)
+		table.insert(textures.used, texture)
+		textures.numUsed = textures.numUsed + 1
+		print("Made new texture ", texture.name)
+	end
+	
+	texture:Hide()
+	texture:SetParent(parent or ns.frame)
+	
+	return texture	
 end
 
 function ns:freeTempTexture(texture)
-	texture:Hide()
+	
+	local found
+	
 	for i,v in ipairs(textures.used) do
 		if v == texture then
-			table.remove(textures.used, i)
-			table.insert(textures.free, texture)
-			return
+			found = i
+			texture:Hide()
 		end
 	end
-	--If we get here the texture object passed in wasn't in our used table. No idea what to do. Nothing I guess
+	
+	if not found then
+		print("Attempting to remove a non used texture?")
+		return
+	end
+	
+	if found then
+		table.insert(textures.free, texture)
+		table.remove(textures.used, found)
+		print("Freed up texture ", texture.name)
+		textures.numFree = textures.numFree + 1
+		textures.numUsed = textures.numUsed - 1
+	end			
+	
 end
+
+
+
+
+
+
 
 function ns:addSpellUpdate(spellbar, key, fxn)
 	spellbar.update = spellbar.update or {}
@@ -1142,7 +1154,7 @@ addEvent(function(...)
 		
 		if GetShapeshiftForm() <= GetNumShapeshiftForms() then
 			ns:applySettings()
-			ns.frame:SetPoint("CENTER", UIParent, "CENTER", 0,-200)
+			ns.frame:SetPoint(unpack(ns.config.anchor))
 			
 			ns.frame:SetScript("OnUpdate", nil)
 
@@ -1166,8 +1178,7 @@ addEvent(function(...)
 			"GLYPH_ENABLED",
 			"GLYPH_REMOVED",
 			"GLYPH_UPDATED",
-			"GLYPH_DISABLED",
-			"LFG_LOCK_INFO_RECEIVED"
+			"GLYPH_DISABLED"
 			)
 
 			addEvent(function(...)
