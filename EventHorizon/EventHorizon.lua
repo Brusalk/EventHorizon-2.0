@@ -879,7 +879,6 @@ function ns:updateSettings()
 		spellbar.updateSettings(spellbar)
 		spellbar:Show()
 		if i==1 then		
-			f.width = spellbar.bar:GetWidth()
 			spellbar:ClearAllPoints()
 			spellbar:SetPoint("TOPLEFT", f, "TOPLEFT", ns.config.padding, -ns.config.padding)
 			spellbar:SetPoint("TOPRIGHT", f, "TOPRIGHT", -ns.config.padding, -ns.config.padding)
@@ -919,11 +918,10 @@ function ns:updateSettings()
 	-- end GCD setting
 	
 	--store the width of the spellbar.bar
-	f.width = prevSpellbar.bar:GetWidth()
-	ns.frame.barAnchor:SetPoint("TOPLEFT", ns.frame, "TOPRIGHT", -ns.frame.width - ns.config.padding - 2, 0)
-	ns.frame.barAnchor:SetPoint("BOTTOMLEFT", ns.frame, "BOTTOMRIGHT", -ns.frame.width - ns.config.padding - 2, 0)
-	ns.gcd:SetPoint("TOPLEFT", ns.frame.barAnchor, "TOPRIGHT")
-	ns.gcd:SetPoint("BOTTOMLEFT", ns.frame.barAnchor, "BOTTOMRIGHT")
+	ns.frame.barAnchor:SetPoint("TOPLEFT", ns.frame, "TOPLEFT", ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
+	ns.frame.barAnchor:SetPoint("BOTTOMLEFT", ns.frame, "BOTTOMLEFT",  ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
+	ns.gcd:SetPoint("TOPLEFT", ns.frame.barAnchor, "TOPLEFT")
+	ns.gcd:SetPoint("BOTTOMLEFT", ns.frame.barAnchor, "BOTTOMLEFT")
 
 	--Update the gcd frame
 	updating = nil
@@ -949,31 +947,35 @@ end
 
 --  [[ GCD INDICATOR ]] --
 
+------------------------------------------
+
+
 
 function ns:startGCD()
 	if not ns.shown then return end
-	
+
 	local start, duration = GetSpellCooldown(ns.config.gcdSpellID)
-	local endTime
 	if start and duration and duration > 0 then
-		endTime = start+duration
-	else
-		endTime = nil
-	end
-	if endTime then
+		local past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.spellbars.active[1].bar:GetWidth(), 0
+		local secondsPerPixel = 0
+		ns.gcd:SetWidth(ns:getPositionByTime(duration))
 		ns.gcd:Show()
 		ns.gcd:SetScript("OnUpdate", function(self, elapsed, ...)
-			if endTime then
-				local width = ns:getPositionByTime(endTime - GetTime())
-				if width > ns:getPositionByTime(0) then
+			
+			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
+			timeElapsed = timeElapsed + elapsed
+			if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. (Smart updating?)
+				duration = duration - timeElapsed
+				timeElapsed = 0
+				local width = ns:getPositionByTime(duration)
+				if duration > 0 then
+					print(width)
 					ns.gcd:SetWidth(width)
+					
 				else
 					ns.gcd:SetScript("OnUpdate", nil)
 					ns.gcd:Hide()
 				end
-			else
-				ns.gcd:SetScript("OnUpdate", nil)
-				ns.gcd:Hide()
 			end
 		end)
 	end
@@ -984,7 +986,7 @@ end
 -- getPositionByTime(t)
 --  t: time in seconds away from 0 to get the position of. -3 would return the position of the beginning of the spellbar by default config
 function ns:getPositionByTime(t)
-	local past, future, width = ns.config.past, ns.config.future, ns.frame.width
+	local past, future, width = ns.config.past, ns.config.future, ns.spellbars.active[1].bar:GetWidth()
 	-- each pixel is (future-past)/width seconds long
 	-- the beginning of the bar is the far left, so an input of -3 should return an offset of 0
 	-- a value of 0 would equal 3 s in the future if we recenter the bar around t = -3
@@ -995,74 +997,76 @@ end
 
 --   [[ buff/debuff/cooldown helpers ]]   --
 
-function ns:addCooldown(spellbar, endTime)
-	if not spellbar or not endTime then return end
-	if endTime < ns.config.past then return end
-	--spellbar.cooldown:Show()
-	--spellbar.cooldown:SetPoint("LEFT", ns.frame.barAnchor, "RIGHT", ns:getPositionByTime(0), 0)
+function ns:addCooldown(spellbar, duration)
+	if not spellbar or not duration then return end
 
-	spellbar.updating["cooldown"] = endTime
-	local currTime = GetTime()
-	local startTime = currTime
-	print("Requested Texture")
+	spellbar.updating["cooldown"] = duration
+	
 	local texture = ns:getTempTexture(spellbar)
-
-	texture:SetPoint("TOP", spellbar, "TOP")
-	texture:SetPoint("LEFT", ns.frame.barAnchor, "RIGHT")
-	texture:SetHeight(spellbar:GetHeight() * (getLayout("cooldown")[2]-getLayout("cooldown")[1]))
+	
+	local barHeight = spellbar:GetHeight()
+	texture:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*getLayout("cooldown")[1])
+	texture:SetPoint("LEFT", ns.frame.barAnchor, "LEFT")
+	texture:SetHeight(barHeight * (getLayout("cooldown")[2]-getLayout("cooldown")[1]))
 	texture:SetDrawLayer("BORDER", 1)
 	texture:SetTexture(ns.config.texture)
 	texture:SetVertexColor(getColor("cooldown"))
 	texture:SetBlendMode(ns.blendModes.cooldown)
+	texture:Show()
+	
 	
 	ns:addSpellUpdate(spellbar, "cooldown", function(self, elapsed, ...)
-		currTime = currTime + elapsed
-		if endTime then
-			local width = ns:getPositionByTime(endTime - currTime)
-			--print(width)
-			if width > 0 then
-				if currTime - startTime < -ns.config.past then
-					texture:SetPoint("LEFT", ns.frame.barAnchor, "RIGHT", ns:getPositionByTime(0-(currTime - startTime)), 0)
-					texture:SetWidth(width - ns:getPositionByTime(startTime - currTime))
-				else
-					texture:SetPoint("LEFT", ns.frame.barAnchor, "RIGHT")
-					texture:SetWidth(width)
-				end		
-			
-			else
-				ns:removeSpellUpdate(spellbar, "cooldown")
-				ns:freeTempTexture(texture)
-			end
-		else
-			ns:removeSpellUpdate(spellbar, "cooldown")
-			ns:freeTempTexture(texture)
-		end
+		
 	end)
+	--[[
+	local start, duration = GetSpellCooldown(ns.config.gcdSpellID)
+	if start and duration and duration > 0 then
+		local past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.spellbars.active[1].bar:GetWidth(), 0
+		local secondsPerPixel = 0
+		ns.gcd:SetWidth(ns:getPositionByTime(duration))
+		ns.gcd:Show()
+		ns.gcd:SetScript("OnUpdate", function(self, elapsed, ...)
+			
+			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
+			timeElapsed = timeElapsed + elapsed
+			if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. (Smart updating?)
+				duration = duration - timeElapsed
+				timeElapsed = 0
+				local width = ns:getPositionByTime(duration)
+				if duration > 0 then
+					print(width)
+					ns.gcd:SetWidth(width)
+					
+				else
+					ns.gcd:SetScript("OnUpdate", nil)
+					ns.gcd:Hide()
+				end
+			end
+		end)
+	end
+	--]]
 end
 
 
-EHtextures = {
-	numFree = 0,
-	numUsed = 0,
+local textures = {
 	free = {},
 	used = {},
 }
 
-local textures = EHtextures
+EHtextures = textures -- Expose it globally for debug
+
 function ns:getTempTexture(parent)
+	local numFree, numUsed = #textures.free, #textures.used
 	local texture
-		if textures.free[textures.numFree] then -- Check if we have a free texture to use. (Pull from the end to make it easy)
-		texture = textures.free[textures.numFree]
-		textures.free[textures.numFree] = nil
+		if textures.free[numFree] then -- Check if we have a free texture to use. (Pull from the end to make it easy)
+		texture = textures.free[numFree]
+		textures.free[numFree] = nil
 		table.insert(textures.used, texture)
-		textures.numFree = textures.numFree - 1
-		textures.numUsed = textures.numUsed + 1
 		print("Gave premade texture ", texture.name)
 	else -- We have to make a new texture
-		texture = ns.frame:CreateTexture("EventHorizon_Texture"..(textures.numFree + textures.numUsed + 1))
-		texture.name = "EventHorizon_Texture"..(textures.numFree + textures.numUsed + 1)
+		texture = ns.frame:CreateTexture("EventHorizon_Texture"..(numFree + numUsed + 1))
+		texture.name = "EventHorizon_Texture"..(numFree + numUsed + 1)
 		table.insert(textures.used, texture)
-		textures.numUsed = textures.numUsed + 1
 		print("Made new texture ", texture.name)
 	end
 	
@@ -1078,35 +1082,24 @@ function ns:freeTempTexture(texture)
 	
 	for i,v in ipairs(textures.used) do
 		if v == texture then
-			found = i
-			texture:Hide()
+			table.insert(textures.free, texture) -- Free the texture up
+			table.remove(textures.used, i)
+			print("Freed up texture ", texture.name)
+			texture:Hide() -- Hide it.
+			texture:ClearAllPoints() -- Unset it's location settings
+			return
 		end
 	end
 	
-	if not found then
-		print("Attempting to remove a non used texture?")
-		return
-	end
-	
-	if found then
-		table.insert(textures.free, texture)
-		table.remove(textures.used, found)
-		print("Freed up texture ", texture.name)
-		textures.numFree = textures.numFree + 1
-		textures.numUsed = textures.numUsed - 1
-	end			
-	
+	print("Attempting to remove a non used texture?")	
 end
-
-
-
 
 
 
 
 function ns:addSpellUpdate(spellbar, key, fxn)
 	spellbar.update = spellbar.update or {}
-	if not spellbar:GetScript("OnUpdate") then
+	if not spellbar.updateCount or spellbar.updateCount == 0 then -- Either it's first init or we've already disabled the update script to save proc time
 		spellbar:SetScript("OnUpdate", function(self, elapsed, ...)
 			for k,fxn in pairs(spellbar.update) do
 				fxn(self, elapsed)
@@ -1119,7 +1112,7 @@ end
 
 function ns:removeSpellUpdate(spellbar, key)
 	if spellbar.update[key] then
-		if spellbar.updateCount == 1 then
+		if spellbar.updateCount == 1 then -- Save proc time when no updates for bar active
 			spellbar:SetScript("OnUpdate", nil)
 		end
 		spellbar.update[key] = nil
@@ -1128,7 +1121,23 @@ function ns:removeSpellUpdate(spellbar, key)
 end
 
 
-
+local lastGCDTime = 0
+addEvent(function(...)
+	local curTime = GetTime()
+	local gcdTime = select(2,GetSpellCooldown(ns.config.gcdSpellID))
+	gcdTime = gcdTime > 0.5 and gcdTime or 1.5
+	if curTime > gcdTime/2+lastGCDTime then -- If it's been at least half a GCD then update the GCD
+		ns:startGCD()
+		lastGCDTime = curTime
+	end
+	--End GCD Stuff
+	
+	
+	
+	
+end,
+"SPELL_UPDATE_COOLDOWN"
+)
 
 
 
@@ -1181,29 +1190,6 @@ addEvent(function(...)
 			"GLYPH_DISABLED"
 			)
 
-			addEvent(function(...)
-				ns:startGCD()
-				print("Start")
-				for _, spellbar in ipairs(ns.spellbars.active) do
-					local start, duration = GetSpellCooldown(ns.config.gcdSpellID)
-					local endTime = start + duration
-					print("GCD:", endTime)
-					for i,spellID in ipairs(spellbar.spellConfig.cooldown) do
-						local start2, duration2 = GetSpellCooldown(spellID)
-						--print(duration2 + start2)
-						if endTime < duration2 + start2 and IsSpellKnown(spellID) then
-							endTime = duration2 + start2
-							print("EndTime:", endTime)
-						end
-					end
-					if endTime > (spellbar.updating["cooldown"] or start + duration) then
-						print("Added CD")
-						ns:addCooldown(spellbar, endTime)
-					end
-				end
-			end,
-			"SPELL_UPDATE_COOLDOWN"
-			)
 
 
 			
