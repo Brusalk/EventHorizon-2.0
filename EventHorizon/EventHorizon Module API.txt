@@ -1,0 +1,24 @@
+EventHorizon Plugin API:
+
+EventHorizon:RegisterModule(key, {
+	description = "Description of what the module does",
+	onDisable = function(...)
+		--Do stuff to disable all the functionality of your module
+	end,
+	onEnable = function(...)
+		--Do stuff to enable all the functionality of your module
+	end,
+	onInit = function(...)
+		--Do anything you need to do to initialize your module. Runs once on player login. onEnable is called after this is done executing, so this function to only one-time stuff
+	end,
+})
+
+EventHorizon:EnableModule(key)
+
+EventHorizon:DisableModule(key)
+
+-- Module Events
+
+EventHorizon:registerModuleEvent(function(
+
+

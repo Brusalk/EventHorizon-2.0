@@ -997,54 +997,59 @@ end
 
 --   [[ buff/debuff/cooldown helpers ]]   --
 
-function ns:addCooldown(spellbar, duration)
-	if not spellbar or not duration then return end
-
-	spellbar.updating["cooldown"] = duration
-	
-	local texture = ns:getTempTexture(spellbar)
+function ns:addCooldown(spellbar, newDuration)
+	if not spellbar or not newDuration or newDuration < ns.config.past or (type(spellbar.updating["cooldown"]) == "table" and newDuration < spellbar.updating["cooldown"][1]) then return end
+	--Make sure we have valid inputs and that the newDuration for the cd is longer than the previous
 	
 	local barHeight = spellbar:GetHeight()
-	texture:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*getLayout("cooldown")[1])
-	texture:SetPoint("LEFT", ns.frame.barAnchor, "LEFT")
-	texture:SetHeight(barHeight * (getLayout("cooldown")[2]-getLayout("cooldown")[1]))
-	texture:SetDrawLayer("BORDER", 1)
-	texture:SetTexture(ns.config.texture)
-	texture:SetVertexColor(getColor("cooldown"))
-	texture:SetBlendMode(ns.blendModes.cooldown)
-	texture:Show()
-	
-	
-	ns:addSpellUpdate(spellbar, "cooldown", function(self, elapsed, ...)
+	local texture
+	if type(spellbar.updating["cooldown"])=="table" then -- Get existing texture if it already exists
+		texture = spellbar.updating["cooldown"][2]
+	else
+		texture = ns:getTempTexture(spellbar)
 		
-	end)
-	--[[
-	local start, duration = GetSpellCooldown(ns.config.gcdSpellID)
-	if start and duration and duration > 0 then
-		local past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.spellbars.active[1].bar:GetWidth(), 0
-		local secondsPerPixel = 0
-		ns.gcd:SetWidth(ns:getPositionByTime(duration))
-		ns.gcd:Show()
-		ns.gcd:SetScript("OnUpdate", function(self, elapsed, ...)
-			
+		texture:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*getLayout("cooldown")[1]) -- texture init setup
+		texture:SetPoint("LEFT", ns.frame.barAnchor, "LEFT")
+		texture:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-getLayout("cooldown")[2]))
+		texture:SetDrawLayer("BORDER", 1)
+		texture:SetTexture(ns.config.texture)
+		texture:SetVertexColor(getColor("cooldown"))
+		texture:SetBlendMode(ns.blendModes.cooldown)
+		texture:SetWidth(ns:getPositionByTime(newDuration))
+		texture:Show()
+		
+	end
+	
+	
+	spellbar.updating["cooldown"] = {newDuration,texture} -- update the updating info for this bar
+	
+
+	-- Handle the movement of the bar
+	local past, future, width, timeElapsed = ns.config.past, ns.config.future, spellbar:GetWidth(), 0
+	local secondsPerPixel = 0
+	local duration = spellbar.updating["cooldown"][1]
+	ns:addSpellUpdate(spellbar, "cooldown", function(self, elapsed, ...)
+		if not spellbar:IsVisible() then
+			ns:removeSpellUpdate(spellbar, "cooldown")
+			ns:freeTempTexture(texture)
+			spellbar.updating["cooldown"] = nil
+		else
 			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
 			timeElapsed = timeElapsed + elapsed
-			if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. (Smart updating?)
+			if timeElapsed >= secondsPerPixel*.3 then -- Limit it to only when we need to move more than 1 pixel.
 				duration = duration - timeElapsed
 				timeElapsed = 0
-				local width = ns:getPositionByTime(duration)
-				if duration > 0 then
-					print(width)
-					ns.gcd:SetWidth(width)
-					
+				if duration > past then -- If the duration's more than the past time. (-3 by default)
+					texture:SetWidth(ns:getPositionByTime(duration))
 				else
-					ns.gcd:SetScript("OnUpdate", nil)
-					ns.gcd:Hide()
+					ns:removeSpellUpdate(spellbar, "cooldown")
+					ns:freeTempTexture(texture)
+					spellbar.updating["cooldown"] = nil
 				end
 			end
-		end)
-	end
-	--]]
+		end
+	end)
+	
 end
 
 
@@ -1105,9 +1110,18 @@ function ns:addSpellUpdate(spellbar, key, fxn)
 				fxn(self, elapsed)
 			end				
 		end)
+		spellbar:SetScript("OnHide", function()
+			spellbar.lastUpdateTime = GetTime()
+		end)
+		spellbar:SetScript("OnShow", function()
+			for k,fxn in pairs(spellbar.update) do -- When the spellbar's hidden we have some fun stuff to deal with since the frame's no longer updated. This fudges it :P
+				fxn(self, GetTime() - spellbar.lastUpdateTime)
+			end
+		end)
 	end
 	spellbar.update[key] = fxn
 	spellbar.updateCount = (spellbar.updateCount or 0) + 1
+	spellbar.lastUpdateTime = 0
 end
 
 function ns:removeSpellUpdate(spellbar, key)

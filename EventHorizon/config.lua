@@ -1,10 +1,5 @@
 local EHN,ns = ...
 
-local old = true
-
-
-if not old then
-
 local _,class = UnitClass('player')	-- These locals make in-line conditions a little easier. See the color section for a few examples.
 local DK = class == "DEATHKNIGHT"
 local Druid = class == "DRUID"
@@ -25,28 +20,31 @@ ns.colors = {}
 
 
 ns.cConfig = {
+	-- Position
+	anchor = {"CENTER", UIParent, "CENTER"},
+
 	--Bar Options
 	height = 100,        		-- Height of the total frame. EH will now automatically resize the height of spellBars depending on how many are active
-	width = 350,        		-- Width of the total frame. (This includes the actual spellBar, as well as the icon if enabled) 
-	barSpacing = 1,      		-- Amount of space vertically between spellBars
-	minBars = 4,         		-- If there are less than or equal to minBars shown, Eh will resize the bars as if there were minBars actually shown. In other words, the total frame will become shorter, rather than the bars becoming larger. You can also think of it like setting an upper-limit on how tall a spellBar can be. (that being height/minBars)
+	width = 400,        		-- Width of the total frame. (This includes the actual spellBar, as well as the icon) 
+	barSpacing = 0,      		-- Amount of space vertically between spellBars
+	minBars = 3,         		-- If there are less than or equal to minBars shown, Eh will resize the bars as if there were minBars actually shown. In other words, the total frame will become shorter, rather than the bars becoming larger. You can also think of it like setting an upper-limit on how tall a spellBar can be. (that being height/minBars)
 	texture = "Interface\\Addons\\EventHorizon\\Smooth",
 								-- If a path to a texture, EH will use that. If a table of {r, g, b, a}, EH will use that.
 	barTexture = "Interface\\Addons\\EventHorizon\\Smooth", -- Path to a texture to use for the background of individual spellbars.
+
 	textureAlphaMultiplier = 2,	-- Textures generally appear darker than a solid color. The alpha value is multiplied by this to counteract this effect
 	
 	--Icon Options
 	icons = true, 				-- If set to false or nil, EH will not show icons and only show the spellBar.
-	iconWidth = 0.1,             -- Width of the icon. If <1 EH assumes this is a percent of the width. If >1 EH will set it as a pixel value.
+	iconWidth = 0.1,            -- Width of the icon. If <1 EH assumes this is a percent of the width. If >1 EH will set it as a pixel value.
 	
 	--Stack Indicator Options
 	stackFont = false,			-- If this is set to a font path, EH will use that font for the stack indicator
 	stackSize = false,    		-- Sets the font size of the indicator if set to a number
 	stackOutline = false, 		-- Sets the outline of the font. Valid: "OUTLINE", "THICKOUTLINE", "MONOCHROME"
+	stackColor = false,			-- Sets the color of the font. {R, G, B, A}
 	stackShadow = false, 		-- Sets whether there should be a shadow effect on the text
 	stackShadowOffset = false,	-- Sets the offset from the text the shadow should be {x,y}
-	
-	stackColor = {1,1,1},			-- Sets the color of the font. {R, G, B, A}
 	stackPosition = {"BOTTOMRIGHT", -2, 2},		-- Sets the position and offset of the stack Indicator relative to the icon. { RelativePoint, xOffSet, yOffSet } Default: {"BOTTOMRIGHT", -2, 2}
 	
 	--Backdrop Options
@@ -56,223 +54,102 @@ ns.cConfig = {
 	border = "Interface\\Tooltips\\UI-Tooltip-Border",
 								-- Path to the texture to use as a border
 	padding = 2, 				-- Extra space (in pixels) between the barFrames/Icons and the backdrop
-	edgeSize = 4, 				-- Thickness of the frame's border. You'll have to mess around with this if you change the border texture to make it look right
-	inset = {top = 0, bottom = 0, left = 0, right = 0},
+	edgeSize = 8, 				-- Thickness of the frame's border. You'll have to mess around with this if you change the border texture to make it look right
+	inset = {top = 2, bottom = 2, left = 2, right = 2},
 								-- Changes the distance between the border texture and the backdrop texture. Moves the backdrop in x pixels.
 	
 	--Time Settings
 	past = -3,    				-- Time in the past in seconds to show to the left of the now line (As a negative number)
 	future = 12, 				-- Time in the future to show to the right of the now line
-	futureLog = false,			-- For the future, I may implement a log scale for the future if enabled. NYI
+	futureLog = false,			-- For the future. I may implement a log scale for the future if enabled. NYI
 	
 }
-
--- The format for the color section is {Red, Green, Blue, Opacity/Alpha}. To color a bar or indicator by class, use {true, <burn>, <alpha>}.
--- <burn> means color intensity - 0.5 burn darkens a color by 50%. 1.2 lightens it by 20%. 1 is baseline.
 ns.cColors = {
-	sent = {true,Priest and 0.7 or 1,0.5},	
-	tick = {true,Priest and 0.7 or 1,1},			-- Tick markers. Default = {true,Priest and 0.7 or 1,1} (class colored, dimmed a bit if you're a Priest, opaque)
-	channeltick = {0,1,0.2,0.25},					-- Tick markers for channeled spells. Default is the same as casting.
+	debuffTick = {true,Priest and 0.7 or 1,1},			-- Tick markers. Default = {true,Priest and 0.7 or 1,1} (class colored, dimmed a bit if you're a Priest, opaque)
+	buffTick = {true,Priest and 0.7 or 1,1},			-- Tick markers. Default = {true,Priest and 0.7 or 1,1} (class colored, dimmed a bit if you're a Priest, opaque)
+	channelTick = {0,1,0.2,0.25},					-- Tick markers for channeled spells. Default is the same as casting.
 	cast = {0,1,0.2,0.25},							-- Casting bars. Default = {0,1,0,0.25} (green, 0.25 unmodified alpha)
-	castline = {0,1,0,0.3},						-- The end-of-cast line, shown for casts and channels over 1.5 seconds. Default = {0,1,0,0.3} (green, 0.3 unmodified alpha)
-	cooldown = {0.6,0.8,1,1},						-- Cooldown bars. Default = {0.6,0.8,1,0.3} (mute teal, 0.3 unmodified alpha)
+	castLine = {0,1,0,0.3},						-- The end-of-cast line, shown for casts and channels over 1.5 seconds. Default = {0,1,0,0.3} (green, 0.3 unmodified alpha)
+	cooldown = {0.6,0.8,1,0.3},						-- Cooldown bars. Default = {0.6,0.8,1,0.3} (mute teal, 0.3 unmodified alpha)
 	debuff = {true,Priest and 0.7 or 1,0.3},	-- YOUR debuff bars. Default = {true,Priest and 0.7 or 1,0.3} (class colored, dimmed a bit if you're a Priest, 0.3 unmodified alpha)
 	buff = {true,Priest and 0.7 or 1,0.3},	-- Buff bars. Default = {true,Priest and 0.7 or 1,0.3} (class colored, dimmed a bit if you're a Priest, 0.3 unmodified alpha)
-	nowline = {1,1,1,0.3},							-- The "Now" line.
-	bg = {0,0,0,0.6}, 							-- Color of the frame's background. Default = {0,0,0,0.6} (black, 60% opacity)
-	barbg = {true,Priest and 0.7 or 1,0.6},
+	nowLine = {1,1,1,0.3},							-- The "Now" line.
+	bg = {0,0,0,0.6}, 				-- Color of the frame's background. Default = {0,0,0,0.6} (black, 60% opacity)
+	barBackground = {1,1,1,0.2},           -- Color of the background of individual bars
 	border = {1,1,1,1},						-- Color of the frame's border. Default = {1,1,1,1} (white, fully opaque)
 	gcd = {1,1,1,0.5},						-- Color of the GCD indicator. Default = {1,1,1,0.5}
 }
-
---[[ This table adjusts blending modes for most portions of EventHorizon. These are not normally usable on Statusbar objects, which EventHorizon is fairly unique about not using.
-From wowprogramming.com's descriptions (which are very apt):
-	'ADD' - Adds texture color values to the underlying color values, using the alpha channel; light areas in the texture lighten the background while dark areas are more transparent
-	'ALPHAKEY' - One-bit transparency; pixels with alpha values greater than ~0.8 are treated as fully opaque and all other pixels are treated as fully transparent
-	'BLEND' - Normal color blending, using any alpha channel in the texture image
-	'DISABLE' - Ignores any alpha channel, displaying the texture as fully opaque
-	'MOD'	- Ignores any alpha channel in the texture and multiplies texture color values by background color values; dark areas in the texture darken the background while light areas are more transparent
-
-Setting blend modes to 'ADD' or 'MOD' can have a very nice effect.
-Default  is 'BLEND'.
-Most entries in the color table support this, as demonstrated below. The backdrop and bar backgrounds are incompatible.
- ]]
 ns.cBlendModes = {
-	sent = "BLEND",	
-	tick = "ADD",			
+	debuffTick = "ADD",		
+	buffTick = "ADD",
 	channeltick = "ADD",					
-	cast = "BLEND",							
-	castline = "BLEND",						
+	cast = "BLEND",				-- If cast is set to show a line, it inheirits this.								
 	cooldown = "ADD",						
 	debuff = "ADD",	
 	buff = "ADD",	
-	nowline = "ADD",							
+	nowline = "ADD",
 	bg = "BLEND", 				
 	barbg = "BLEND",          
 	border = "BLEND",		
-	gcd = "BLEND",	
+	gcd = "BLEND",				-- If setup to have a moving line rather than functioning like a cast, inheirits off of this
+	gcdLine = "ADD",   			-- This is for the line 1 GCD in the future if enabled.
 }
+ns.cLayouts = {
+	debuffTick = {				-- debuff Tick markers.
+		top = 0,
+		bottom = 0.12,
+	},
+	buffTick = {				-- buff tick markers. Lets you have debuffs and buffs on the same bar
+		top = 0.88,
+		bottom = 1,
+	},
+	channelTick = {
+		top = 0,
+		bottom = 0.12,
+	},
+	cast = {					-- If cast is set to show a line, it inheirits this.		
+		top = 0,
+		bottom = 1,
+	},								
+	cooldown = {
+		top = 0,
+		bottom = 1,
+	},							
+	debuff = {
+		top = 0,
+		bottom = 1,
+	},	
+	buff = {
+		top = 0,
+		bottom = 1,
+	},		
+	nowline = {
+		top = 0,
+		bottom = 1,
+	},	
+	barbg = {
+		top = 0,
+		bottom = 1,
+	},	         
+	gcd =  {					-- If setup to have a moving line rather than functioning like a cast, inheirits off of this
+		top = 0,
+		bottom = 1,
+	},				
+	gcdLine = {	   				-- This is for the line 1 GCD in the future if enabled.
+		top = 0,
+		bottom = 1,
+	},
 
--- This little table judges the thickness and positioning of each bar element.
--- It's all done by percentages, from the top of the bar. 0 is the absolute top, 0.35 is 35% down from there, 0.5 is halfway down the bar, etc. 1 is the bottom of the bar. Yes, you can use numbers greater than 1, but it will probably look odd.
-ns.cLayouts = {		-- You can actually add anything from the table above here, segments just inherit off 'default' if they're not included. Just tinker with the numbers if you want to see how it works.
-	tick = {					-- Tick markers.
+	recastZone = {				-- The recast line for spells like Vampiric Touch and Immolate.
 		top = 0,
-		bottom = 0.12,
-	},
-	channeltick = {
-		top = 0,
-		bottom = 0.12,
-	},
-	recastzone = {				-- The recast line for spells like Vampiric Touch and Immolate.
-		top = 0.12,
 		bottom = 0.25,
 	},
-	cantcast = {				-- The blank section below the recast line.
+	cantCast = {				-- The blank section below the recast line.
 		top = 0.25,
 		bottom = 1,
 	},
 	default = {					-- Just about everything else.
-		top = 0.12,
-		bottom = 1,
-	},
-}
-
-else
-
-local config = EventHorizon.config
-local _,class = UnitClass('player')	-- These locals make in-line conditions a little easier. See the color section for a few examples.
-local DK = class == "DEATHKNIGHT"
-local Druid = class == "DRUID"
-local Hunter = class == "HUNTER"
-local Mage = class == "MAGE"
-local Paladin = class == "PALADIN"
-local Priest = class == "PRIEST"
-local Rogue = class == "ROGUE"
-local Shaman = class == "SHAMAN"
-local Warlock = class == "WARLOCK"
-local Warrior = class == "WARRIOR"
-
-config.showTrinketBars = false			-- Show bars for your equipped trinkets? Default = true
-config.castLine = true					-- Show a full-frame line at the end of casts/channels? Default = true (show for all casts). Setting this to a number will set the lower limit accordingly. ie, config.castLine = 0.5 will show all casts over 0.5 seconds. Setting this to 0 will show the line for all casts no matter what.
-config.gcdStyle = 'line'				-- 'line' = show a thin line for the GCD. 'bar' = show a full-frame shrinking bar for the gcd (looks good at a dark color and low opacity, set within the color table). false = disable GCD handling.
-
-config.enableRedshift = false			-- Enable Redshift's show/hide functions? Default = false
-config.Redshift.showCombat = true 		-- Always show EH in combat. Default = true
-config.Redshift.showHarm = true			-- Show EH if targeting an attackable unit, in or out of combat. Default = true
-config.Redshift.showHelp = false		-- Show EH if targeting a friendly (unattackable) unit, in or out of combat. Default = false
-config.Redshift.showBoss = true			-- Always show EH when targeting a boss-level unit, regardless of its attackable state. Default = true
-config.Redshift.showFocus = false		-- Always show EH while a focus unit exists, in or out of combat. Default = false
-config.Redshift.hideVehicle = true		-- Hide EH if using a vehicle with an actionbar of its own. Does not affect vehicles that do not change the actionbar. If you use Vitals, you may want to set this to false. Default = true
-config.Redshift.hideVitals = true		-- Hide EventHorizon_Vitals as well when the main frame is hidden. Default = true
-
-config.Lines = nil						-- This draws extra marker lines on EventHorizon. Examples: config.Lines = 2 (add a line at 2 seconds in the future); config.Lines = {2, 4, 6} (add lines at 2, 4 and 6 seconds). Decimals and math are permitted, of course. Any amount of lines is allowed. Default: Disabled.
-config.LinesColor = {1,1,1,0.5}			-- Standard color syntax {R,G,B,A} (see below). No classcolor allowed quite yet. Embed more tables for more colors. {{1,0,0,1},{0,1,0,1},{0,0.5,1}} will do one red line, one green line, and the rest kinda-teal lines. Yeah, it's a bit of an advanced thing.
-
-config.anchor = {"BOTTOM", UIParent, "BOTTOM", 0, 250}	-- EventHorizon's position. Format: {'POINT', 'AnchorFrame', 'RELATIVE', Xoffset (optional), Yoffset (optional)}. Set the anchor to something other than EventHorizonHandle to root EH in place and remove the anchor. Default = {"TOPRIGHT", "EventHorizonHandle", "BOTTOMRIGHT"} (anchor the TOPRIGHT of EH to EventHorizonHandle's BOTTOMRIGHT with no offset)
-config.width = 400						-- Width of a single bar, not counting its icon. The actual width of the frame is (width+height+[padding*2]).
-config.height = 18						-- Height of a single bar. If you use config.staticHeight, this is used for the width of the bar icons.
-config.spacing = 0						-- Vertical spacing between bars.
-config.scale = 1						-- The overall scale of the main frame.
-config.staticheight = 125				-- Changing this to a number will override config.height and tell EH to resize the bars instead of the frame. For example, 'config.staticheight = 150' will make EH 150 pixels tall. With 5 shown bars, each bar will be 30 pixels tall. Spacing is still used in this mode and will act the same as it does otherwise.
-config.staticframes = 0				-- When used with config.staticheight, sets a minimum number of bars to use static height settings with. For example, with staticframes = 4 and 3 bars shown, EventHorizon will use normal variable height settings.
-config.hideIcons = false				-- Hides the bar icons completely. This will make the frame a little more narrow, as config.height will no longer add to its width.
-
-config.past = -1						-- Number of seconds to show in the past. Default = -3 (yes, it's a negative number)
-config.future = 12						-- Number of seconds to show in the future. Recommended to keep this between 12-18 unless you've got some crazy configuration. Default = 12
-
-config.texturedbars = true				-- You have the choice between textures and solid colors. Remove this or comment it out to see what the solids look like. Default = true
-config.bartexture = "Interface\\AddOns\\SharedMedia\\statusbar\\Smoothv2"	-- Full path, minus extension, of the bar texture to use. Default = "Interface\\Addons\\EventHorizon\\Smooth"
-config.texturealphamultiplier = 2		-- Most textures appear darker than a solid color because of the alpha value. To counteract this, the opacity of the color is multiplied by this number before it's applied to a texture.
-config.barbg = false					-- Shows a backdrop behind each individual bar. The color of the backdrop may be set within the color table below.
-
-config.backdrop = true										-- Use the background and border frame? Default = true
-config.padding = 3											-- Extra space between the bar edges and the backdrop/border.
-config.bg = "Interface\\ChatFrame\\ChatFrameBackground"		-- Frame background texture. Full path, no extension. Default = "Interface\\ChatFrame\\ChatFrameBackground"
-config.border = ""	-- Border texture, same thing all over. Default = "Interface\\Tooltips\\UI-Tooltip-Border" 
-config.edgesize = 8											-- Thickness of the frame's border. Default = 8
-config.inset = {top = 2, bottom = 2, left = 2, right = 2}	-- Backdrop insets move the edges of the background, but leave the border untouched. Long story short, start at 1/4 your edgesize and adjust by 1 until it looks right. Default = {top = 2, bottom = 2, left = 2, right = 2}
-
-config.stackFont = false				-- Changes the font of the stack indicators. Usage: config.stackFont = "Interface\\AddOns\\FontDirectory\\FontName.ttf"
-config.stackFontSize = false			-- Changes the font size of the stack indicators. Only usable with config.stackFont. Usage: config.stackFontSize = <number> (start at 12 and adjust from there if you're not sure)
-config.stackFontOutline = false			-- Adds an outline to the font. Only usable with config.stackFont. Valid flags: "OUTLINE", "THICKOUTLINE", "MONOCHROME". Usage: config.stackFontSize = "FLAG"
-config.stackFontColor = false			-- Changes the color of the stack indicators. This option available even if config.stackFont is not being used. Usage: config.stackFontColor = {Red,Green,Blue,(Alpha)} (default = {1,1,1}, alpha is optional)
-config.stackFontShadow = false			-- Adds a shadow effect to the stack indicators. Only usable with config.stackFont. Setting this to true defaults it to black at 50% opacity. Best used without an outline. Usage: config.stackFontShadow = {Red,Green,Blue,(Alpha)} -OR- true ( {0,0,0,0.5} )
-config.stackFontShadowOffset = false	-- Changes the offset of the font shadow if config.stackFontShadow is set. Usage: config.stackFontShadowOffset = {x,y} (default = {1,-1})
-config.stackOnRight = false				-- Changes the position of the stack indicators from the left of the frame to the right. Default = false. Usage: config.stackOnRight = true
-
--- The format for the color section is {Red, Green, Blue, Opacity/Alpha}. To color a bar or indicator by class, use {true, <burn>, <alpha>}.
--- <burn> means color intensity - 0.5 burn darkens a color by 50%. 1.2 lightens it by 20%. 1 is baseline.
-local c = EventHorizon.colors
-c.sent = {true,Priest and 0.7 or 1,0.5}			-- Marker line when a spellcast is sent to the server. Default = {true,Priest and 0.7 or 1,0.5} (class colored, dimmed a bit if you're a Priest, 50% opacity)
-c.tick = {true,Priest and 0.7 or 1,1}			-- Tick markers. Default = {true,Priest and 0.7 or 1,1} (class colored, dimmed a bit if you're a Priest, opaque)
-c.channeltick = {0,1,0.2,0.25}					-- Tick markers for channeled spells. Default is the same as casting.
-c.casting = {0,1,0.2,0.25}							-- Casting bars. Default = {0,1,0,0.25} (green, 0.25 unmodified alpha)
-c.castLine = {0,1,0,0.3}						-- The end-of-cast line, shown for casts and channels over 1.5 seconds. Default = {0,1,0,0.3} (green, 0.3 unmodified alpha)
-c.cooldown = {0.6,0.8,1,0.3}						-- Cooldown bars. Default = {0.6,0.8,1,0.3} (mute teal, 0.3 unmodified alpha)
-c.debuffmine = {true,Priest and 0.7 or 1,0.7}	-- YOUR debuff bars. Default = {true,Priest and 0.7 or 1,0.3} (class colored, dimmed a bit if you're a Priest, 0.3 unmodified alpha)
-c.debuff = {true,Priest and 0.7 or 1,0.7}					-- OTHER PLAYERS' debuff bars. Default = {true,0.5,0.3} (class colored, darkened by 50%, 0.3 unmodified alpha)
-c.playerbuff = {true,Priest and 0.7 or 1,0.3}	-- Buff bars. Default = {true,Priest and 0.7 or 1,0.3} (class colored, dimmed a bit if you're a Priest, 0.3 unmodified alpha)
-c.nowLine = {1,1,1,0.3}							-- The "Now" line.
-c.bgcolor = {0,0,0,0.6}							-- Color of the frame's background. Default = {0,0,0,0.6} (black, 60% opacity)
-c.bordercolor = {1,1,1,1}						-- Color of the frame's border. Default = {1,1,1,1} (white, fully opaque)
-c.gcdColor = {1,1,1,0.5}						-- Color of the GCD indicator. Default = {1,1,1,0.5}
-c.barbgcolor = {1,1,1,0.1}						-- Color of bar backgrounds. Default = {1,1,1,0.1} (barely visible)
-
---[[ This table adjusts blending modes for most portions of EventHorizon. These are not normally usable on Statusbar objects, which EventHorizon is fairly unique about not using.
-From wowprogramming.com's descriptions (which are very apt):
-	'ADD' - Adds texture color values to the underlying color values, using the alpha channel; light areas in the texture lighten the background while dark areas are more transparent
-	'ALPHAKEY' - One-bit transparency; pixels with alpha values greater than ~0.8 are treated as fully opaque and all other pixels are treated as fully transparent
-	'BLEND' - Normal color blending, using any alpha channel in the texture image
-	'DISABLE' - Ignores any alpha channel, displaying the texture as fully opaque
-	'MOD'	- Ignores any alpha channel in the texture and multiplies texture color values by background color values; dark areas in the texture darken the background while light areas are more transparent
-
-Setting blend modes to 'ADD' or 'MOD' can have a very nice effect.
-Default (nil/false) is 'BLEND'.
-Most entries in the color table support this, as demonstrated below. The backdrop and bar backgrounds are incompatible.
- ]]
-config.blendModes = {
-	sent = nil,
-	tick = nil,
-	channeltick = nil,
-	casting = nil,
-	castLine = nil,
-	cooldown = nil,
-	debuffmine = 'MOD',
-	debuff = 'MOD',
-	playerbuff = nil,
-	nowLine = nil,
-	gcdColor = nil,
-}
-
--- This little table judges the thickness and positioning of each bar element.
--- It's all done by percentages, from the top of the bar. 0 is the absolute top, 0.35 is 35% down from there, 0.5 is halfway down the bar, etc. 1 is the bottom of the bar. Yes, you can use numbers greater than 1, but it will probably look odd.
-EventHorizon.layouts = {		-- You can actually add anything from the table above here, segments just inherit off 'default' if they're not included. Just tinker with the numbers if you want to see how it works.
-	tick = {					-- Tick markers.
-		top = 0,
-		bottom = 0.25,
-	},
-	channeltick = {
-		top = 0,
-		bottom = 0.12,
-	},
-	smalldebuff = {				-- The recast line for spells like Vampiric Touch and Immolate.
-		top = 0.12,
-		bottom = 0.25,
-	},
-	cantcast = {				-- The blank section below the recast line.
-		top = 0.25,
-		bottom = 1,
-	},
-	smallCooldown = {
-		top = 0.5,
-		bottom = 1,
-	},
-	default = {					-- Just about everything else.
 		top = 0,
 		bottom = 1,
 	},
 }
-
-
-end

@@ -4,69 +4,7 @@ function EventHorizon:InitializeClass()
 	self.config.gcdSpellID = 588 -- Inner Fire
 	self.config.hastedSpellID = {2006,10} -- Resurrection
 	
-	old = true
-	
-	if old then
 		
-		-- Vampiric Touch/swd cd
-	self:NewSpell({
-		spellID = 34914,
-		debuff = 34914,
-		cast = 34914,
-		cooldown = 32379,
-		dot = 3,
-		refreshable = true,
-		hasted = true,
-		requiredTree = 3,
-		requiredLevel = 28,
-		stance = 1,
-	})
-	
-	-- Shadow Word: Pain/mind bender cd
-	self:NewSpell({
-		spellID = 589,
-		debuff = 589,
-		dot = 3,
-		hasted = true,
-		cooldown = {123040, 34433},
-		refreshable = true,
-		requiredTree = 3,
-		requiredLevel = 4,
-		stance = 1,
-	})
-	
-
-	
-	-- Mind Blast/Spike/Melt
-	self:NewSpell({
-		spellID = 8092,
-		cast = {8092,73510},
-		cooldown = 8092,
-		buff = 81292,
-		refreshable = true,
-		requiredTree = 3,
-		stance = 1,
-	})
-	
-	
-	--lvl 90 talents
-	self:NewSpell({ 
-		spellID = 120517,
-		cooldown = {120517, 110744, 121135}, -- halo, shadow halo, divine star, shadow divine star, cascade, shadow cascade
-		requiredLevel = 90,
-		requiredTalent = {16,17,18},
-	})
-	
-	else
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	--[[ 
 spellbar.config = {
 	cooldown = {}, -- a single spellID or a table of spellIDs of which the spellbar will show the longest
@@ -316,6 +254,6 @@ spellbar.config = {
 		requiredLevel = 50,
 	})
 	]]
-end
+
 
 end
