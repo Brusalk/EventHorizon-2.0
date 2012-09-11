@@ -3,11 +3,17 @@ local EHN,ns = ...
 EventHorizon = ns
 EH = ns
 
+local L = ns.localization
+
 
 ns.frame = CreateFrame("frame") -- eventFrame + vars holder
 ns.gcd = CreateFrame("frame") -- GCD Anchor Frame
 ns.frame.barAnchor = CreateFrame("frame") -- Frame at t=0
 ns.frame.barAnchor:SetWidth(1)
+ns.tooltip = CreateFrame("GameTooltip", "EventHorizonScanTooltip", nil, "GameTooltipTemplate")
+ns.tooltip:SetOwner(WorldFrame, "ANCHOR_TOPRIGHT")
+ns.tooltip:CreateFontString("$parentTextLeft1", nil, "GameTooltipText")
+ns.tooltip:CreateFontString("$parentTextRight1", nil, "GameTooltipText")	
 
 -- [[ UTILITY TABLES ]] --
 local errors = {}
@@ -969,7 +975,7 @@ function ns:startGCD()
 				timeElapsed = 0
 				local width = ns:getPositionByTime(duration)
 				if duration > 0 then
-					print(width)
+					--print(width)
 					ns.gcd:SetWidth(width)
 					
 				else
@@ -998,13 +1004,15 @@ end
 --   [[ buff/debuff/cooldown helpers ]]   --
 
 function ns:addCooldown(spellbar, newDuration)
-	if not spellbar or not newDuration or newDuration < ns.config.past or (type(spellbar.updating["cooldown"]) == "table" and newDuration < spellbar.updating["cooldown"][1]) then return end
+	if not spellbar or not newDuration or newDuration < ns.config.past then return end
 	--Make sure we have valid inputs and that the newDuration for the cd is longer than the previous
 	
 	local barHeight = spellbar:GetHeight()
 	local texture
 	if type(spellbar.updating["cooldown"])=="table" then -- Get existing texture if it already exists
 		texture = spellbar.updating["cooldown"][2]
+		
+		
 	else
 		texture = ns:getTempTexture(spellbar)
 		
@@ -1049,6 +1057,11 @@ function ns:addCooldown(spellbar, newDuration)
 			end
 		end
 	end)
+	
+end
+
+function ns:addDebuff(spellbar, duration, tickSpeed)
+	print("Added debuff with duration " .. duration .. " to spellbar " .. spellbar.index .. " with tick speed " .. (tickSpeed or "no ticks"))
 	
 end
 
@@ -1149,6 +1162,8 @@ addEvent(function(...)
 	
 	
 	
+	
+	
 end,
 "SPELL_UPDATE_COOLDOWN"
 )
@@ -1156,8 +1171,37 @@ end,
 
 
 
-
-
+addEvent(function(self, event, unit)
+	for _, spellbar in ipairs(ns.spellbars.active) do
+		if spellbar.spellConfig.debuff[1] > 0 then -- We have a debuff to look at
+			for i=1, 40 do
+				if unit == (type(spellbar.spellConfig.debuff[2]) == "string" and spellbar.spellConfig.debuff[2] or "target") then
+					local name, rank, icon, count, dispelType, duration, expires, caster, isStealable, shouldConsolidate, spellID, canApplyAura, isBossDebuff, value1, value2, value3 = UnitDebuff(unit, i)
+					if caster == "player" then
+						if spellbar.spellConfig.debuff[1] == spellID then -- Ooh, we found it on this spellbar.
+							
+							ns.tooltip:SetUnitDebuff(unit, i)
+							local scanText = _G["EventHorizonScanTooltipTextLeft2"]:GetText()
+							local tickSpeed = tonumber(scanText:match(L["every"] .. "([0-9]+%.?[0-9]*)"))
+								--tonumber returns nil if it can't be converted to a number
+							
+							local totalTicks = duration/tickSpeed
+							local tickError = math.abs((totalTicks / round(totalTicks,0))-1)
+							--print("Got: ", tickError)
+							if tickError < 0.1 then 
+								local debuffDuration = expires - GetTime()
+								--ns:addDebuff(spellbar, debuffDuration, tickSpeed)
+							else
+								--print("Error in tick calc. Got: ", tickError)
+							end
+						end
+					end	
+				end
+			end
+		end
+	end
+end,
+"UNIT_AURA")
 
 
 
