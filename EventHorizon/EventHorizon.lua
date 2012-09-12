@@ -36,7 +36,7 @@ end
 -- error: Only enabled when in debug mode
 --   fxn: String with either a function name to produce the error for, or a custom error message
 --   errorKey: nil or string. If nil error will produce the custom message. If a string error will use it to index errors[fxn] to find an error message
-local function error(fxn, errorKey)
+function ns:error(fxn, errorKey)
 	if not fxn or not DEBUG then return end
 	if errorKey then
 		print("Error in function " .. fxn .. ":", errors[fxn][errorKey] or "Double-Fault. Error not found >.<")
@@ -44,7 +44,7 @@ local function error(fxn, errorKey)
 		print("Error:", fxn)
 	end
 end
-local function addError(fxn, err)
+function ns:addError(fxn, err)
 	if not DEBUG then return end
 	errors[fxn] = {}
 	for i,v in pairs(err) do
@@ -59,10 +59,10 @@ end
 --   t2:  Table of values to use over def and t1
 --  Usage: Combining the defaultConfig, config.lua and myConfig.lua options. (myConfig > config > default)
 --  Returns: Table of entries where t2>t1>def
-addError("mergeDef", {inputs = "one or more of inputs def, t1 are not defined"})
+ns:addError("mergeDef", {inputs = "one or more of inputs def, t1 are not defined"})
 local function mergeDef(def, t1, t2)
 
-	if not def or not t1 then error("mergeDef", "inputs") return end
+	if not def or not t1 then ns:error("mergeDef", "inputs") return end
 	local tmp = {}
 	for i,v in pairs(def) do
 		if t2 and (t2[i] or t2[i] == false) then -- t2 is actually an optional table.
@@ -77,43 +77,15 @@ local function mergeDef(def, t1, t2)
 	return tmp
 end
 
--- addEvent:
---   event: string of event to register and handle
---   handler: function accepting inputs self, event, ... which fires when event happens. ... contains event specific args such as UnitID for UNIT_HEALTH
-addError("addEvent", {inputs = "one or more of inputs event, handler are not defined"})
-local function addEvent(handler, ...)
-	if select('#',...) == 0 or not handler then error("addEvent", "inputs") return end
-	if not ns.frame:GetScript("OnEvent") then -- Just to make sure that we have defined the event-handler code already
-		ns.frame:SetScript("OnEvent", function(self, event, ...)
-			if ns.events[event] then
-				ns.events[event](self, event, ...) -- call the function
-			else -- We have no registered function for this event. Error
-				error("No registered event handler for event " .. event)
-			end
-		end)
-	end
-	
-	local tmp = 1
-	local event = ...
-	while true do
-		event = select(tmp,...)
-		if event then
-			ns.frame:RegisterEvent(event)
-			ns.events[event] = handler	
-		else
-			break
-		end
-		tmp = tmp + 1
-	end
-end
+
 
 
 -- tableMerge:
 --	  tab1-tabN: tables of which elements common to all are to be returned
 --  Usage: Combines the spellbar tables and returns the spellbars which are common to all inputs (and should thus be activated)
-addError("tableMerge", {inputs = "At least 2 table inputs are required for this function!"})
+ns:addError("tableMerge", {inputs = "At least 2 table inputs are required for this function!"})
 local function tableMerge(...) 
-	if select('#', ...) < 2 then print(select(1,...)) error("tableMerge", "inputs") return end
+	if select('#', ...) < 2 then print(select(1,...)) ns:error("tableMerge", "inputs") return end
 	local toReturn = {}
 	print(select(1,...))
 	for j,spellbar in pairs(...) do -- do it this way so we don't actually do anything to the tables passed in
@@ -154,15 +126,12 @@ local function tableMerge(...)
 	return toReturn -- return everything that's common
 end
 
-function testMerge()
-	return tableMerge({1,2,3,4,5,6,7}, "test", {}, {2,4,6})
-end
 
 
-addError("getColor", {inputs = "color information must be a table of {r,g,b,a} or {true, burn%, alpha} for class colored"})
-local function getColor(key)
+ns:addError("getColor", {inputs = "color information must be a table of {r,g,b,a} or {true, burn%, alpha} for class colored"})
+function ns:getColor(key)
 	print(key, " : ", ns.colors[key])
-	if not key or not ns.colors[key] or type(ns.colors[key]) ~= "table" or #ns.colors[key]<3 or #ns.colors[key]>4 then error("getColor", "inputs") return end
+	if not key or not ns.colors[key] or type(ns.colors[key]) ~= "table" or #ns.colors[key]<3 or #ns.colors[key]>4 then ns:error("getColor", "inputs") return end
 	local classColor = RAID_CLASS_COLORS[select(2,UnitClass("player"))]
 	if ns.colors[key][1] == true then -- Class coloring/burn/alpha
 		return classColor.r * ns.colors[key][2], classColor.g * ns.colors[key][2], classColor.b * ns.colors[key][2], ns.colors[key][3]
@@ -172,7 +141,7 @@ local function getColor(key)
 end
 
 
-local function getLayout(key)
+function ns:getLayout(key)
 	if ns.layouts[key] then
 		return {ns.layouts[key].top, ns.layouts[key].bottom}
 	else
@@ -386,9 +355,9 @@ spellbar.config = {
 --   self: spellbar reference
 --   spellID: spellID to set icon to
 --   stacks: number to display on the stacks counter
-addError("updateIcon", {inputs = "inputs spellBar were not of correct type or not all defined"})
+ns:addError("updateIcon", {inputs = "inputs spellBar were not of correct type or not all defined"})
 local function updateIcon(self, spellID, stacks)
-	if not self or not self.spellConfig then error("updateIcon", "inputs") return end
+	if not self or not self.spellConfig then ns:error("updateIcon", "inputs") return end
 	--Quick Note: This assumes that the spellbar's dims have been updated and are correct
 	
 	if not ns.config.icons then return end -- don't do anything if they've disabled icons
@@ -465,9 +434,9 @@ end
 -- updateSpellbarSettings:
 --  Updates the configuration settings for the spellbar self
 --   self: spellbar reference to be updated
-addError("updateSpellbarSettings", {inputs = "Input spellbar was either not defined or not initialized yet."})
+ns:addError("updateSpellbarSettings", {inputs = "Input spellbar was either not defined or not initialized yet."})
 local function updateSpellbarSettings(self)
-	if not self or not self.spellConfig then error("updateSettings", "inputs") return end
+	if not self or not self.spellConfig then ns:error("updateSettings", "inputs") return end
 	
 	local c = ns.config
 	local numactive = (#ns.spellbars.active>0 and #ns.spellbars.active or 1)
@@ -499,24 +468,24 @@ local function updateSpellbarSettings(self)
 	end
 	--castbar
 	self.cast:SetTexture(ns.config.texture)
-	self.cast:SetVertexColor(getColor("cast"))
+	self.cast:SetVertexColor(ns:getColor("cast"))
 	self.cast:SetBlendMode(ns.blendModes.cast)
 	
 	-- self.cooldown:SetTexture(ns.config.texture)
-	-- self.cooldown:SetVertexColor(getColor("cooldown"))
+	-- self.cooldown:SetVertexColor(ns:getColor("cooldown"))
 	-- self.cooldown:SetBlendMode(ns.blendModes.cooldown)
 	
 	-- self.debuff:SetTexture(ns.config.texture)
-	-- self.debuff:SetVertexColor(getColor("debuff"))
+	-- self.debuff:SetVertexColor(ns:getColor("debuff"))
 	-- self.debuff:SetBlendMode(ns.blendModes.debuff)
 	
 	-- self.buff:SetTexture(ns.config.texture)
-	-- self.buff:SetVertexColor(getColor("buff"))
+	-- self.buff:SetVertexColor(ns:getColor("buff"))
 	-- self.buff:SetBlendMode(ns.blendModes.buff)
 	
 	self.bar.texture:SetTexture(ns.config.barTexture)
-	self.bar.texture:SetVertexColor(getColor("barBackground"))
-	--print(getColor("barBackground"))
+	self.bar.texture:SetVertexColor(ns:getColor("barBackground"))
+	--print(ns:getColor("barBackground"))
 	self.bar.texture:SetBlendMode(ns.blendModes.barBackground)
 
 	--Done Updating Spellbar self
@@ -526,7 +495,7 @@ end
 
 
 
-addError("newSpell", {
+ns:addError("newSpell", {
 	cooldown = "Class Config: cooldown should be a spellID or a table of spellIDs of which the spellbar will show the longest",
 	debuff = "Class Config: debuff should be a spellID or a table of a spellID and the unhasted time between ticks or a table of multiple tables of a spellID and unhasted time between ticks. EventHorizon will show the shortest", 
 	buff = "Class Config: buff should be a spellID or a table of a spellID and the unhasted time between ticks or a table of multiple tables of a spellID and unhasted time between ticks. EventHorizon will show the shortest", 
@@ -637,14 +606,14 @@ function ns:newSpell(spellConfig)
 		spellConfig.cooldown = {}
 	elseif type(spellConfig.cooldown) ~= "table" then
 		spellConfig.cooldown = {}
-		error("newSpell", "cooldown")
+		ns:error("newSpell", "cooldown")
 	end
 	for i,v in pairs(spellConfig.cooldown) do
 		if type(v) == "number" then
 			ns.spellbars.cooldown[v] = ns.spellbars.cooldown[v] or {} -- Make sure that this index is a table so we can insert values
 			table.insert(ns.spellbars.cooldown[v], spellbar)
 		else
-			error("newSpell", "cooldown")
+			ns:error("newSpell", "cooldown")
 		end
 	end
 	
@@ -655,12 +624,12 @@ function ns:newSpell(spellConfig)
 		spellConfig.debuff = {0,0}	
 	elseif type(spellConfig.debuff) ~= "table" then
 		spellConfig.debuff = {0,0}
-		error("newSpell", "debuff")
+		ns:error("newSpell", "debuff")
 		print("1")
 	end
 	if type(spellConfig.debuff[1]) == "table" then -- We have debuff = { {spellID1, unhasted ticks}, {spellID2, unhasted ticks 2} }
 		for i, debuff in ipairs(spellConfig.debuff) do
-			if type(debuff[1]) ~= "number" or type(debuff[2]) ~= "number" then error("newSpell", "debuff")	else
+			if type(debuff[1]) ~= "number" or type(debuff[2]) ~= "number" then ns:error("newSpell", "debuff")	else
 				ns.spellbars.debuff[debuff[1]] = ns.spellbars.debuff[debuff[1]] or {}
 				table.insert(ns.spellbars.debuff[debuff[1]], spellbar)				
 			end
@@ -677,11 +646,11 @@ function ns:newSpell(spellConfig)
 		spellConfig.buff = {0,0}
 	elseif type(spellConfig.buff) ~= "table" then
 		spellConfig.buff = {0,0} -- makes it easy. Don't have to deal with existance checking this way
-		error("newSpell", "buff")
+		ns:error("newSpell", "buff")
 	end
 	if type(spellConfig.buff[1]) == "table" then -- We have buff = { {spellID1, unhasted ticks}, {spellID2, unhasted ticks 2} }
 		for i, buff in ipairs(spellConfig.buff) do
-			if type(buff[1]) ~= "number" or type(buff[2]) ~= "number" then error("newSpell", "buff")	else
+			if type(buff[1]) ~= "number" or type(buff[2]) ~= "number" then ns:error("newSpell", "buff")	else
 				ns.spellbars.buff[buff[1]] = ns.spellbars.buff[buff[1]] or {}
 				table.insert(ns.spellbars.buff[buff[1]], spellbar)				
 			end
@@ -699,7 +668,7 @@ function ns:newSpell(spellConfig)
 	else -- it's a table
 		if #spellConfig.unitID > 2 or #spellConfig.unitID < 2 or type(spellConfig.unitID[1]) ~= "string" or type(spellConfig.unitID[2]) ~= "string" then
 			spellConfig.unitID = {"target", "target"}
-			error("newSpell", "unitID")
+			ns:error("newSpell", "unitID")
 		end
 	end
 	ns.spellbars.unitID[v] = ns.spellbars.unitID[v] or {}
@@ -720,14 +689,14 @@ function ns:newSpell(spellConfig)
 		for i=0,GetNumShapeshiftForms() do
 			table.insert(spellConfig.stance, i)
 		end 
-		error("newSpell", "stance")
+		ns:error("newSpell", "stance")
 	end
 	for i,v in pairs(spellConfig.stance) do
 		if type(v) == "number" then
 			ns.spellbars.stance[v] = ns.spellbars.stance[v] or {}
 			table.insert(ns.spellbars.stance[v], spellbar)
 		else
-			error("newSpell", "stance")
+			ns:error("newSpell", "stance")
 		end
 	end
 	
@@ -738,14 +707,14 @@ function ns:newSpell(spellConfig)
 		spellConfig.requiredTree = (select(2,UnitClass("player"))=="DRUID") and {1,2,3,4} or {1,2,3}
 	elseif type(spellConfig.requiredTree) ~= "table" then
 		spellConfig.requiredTree = (select(2,UnitClass("player"))=="DRUID") and {1,2,3,4} or {1,2,3} -- makes it easy. Don't have to deal with existance checking this way
-		error("newSpell", "tree")
+		ns:error("newSpell", "tree")
 	end
 	for i,v in pairs(spellConfig.requiredTree) do
 		if type(v) == "number" and v >= 1 and v <= (select(2,UnitClass("player"))=="DRUID" and 4 or 3) then
 			ns.spellbars.tree[v] = ns.spellbars.tree[v] or {}
 			table.insert(ns.spellbars.tree[v], spellbar)
 		else
-			error("newSpell", "tree")
+			ns:error("newSpell", "tree")
 		end
 	end
 	
@@ -756,14 +725,14 @@ function ns:newSpell(spellConfig)
 		spellConfig.cast = {}
 	elseif type(spellConfig.cast) ~= "table" then
 		spellConfig.cast = {} -- makes it easy. Don't have to deal with existance checking this way
-		error("newSpell", "cast")
+		ns:error("newSpell", "cast")
 	end
 	for i,v in pairs(spellConfig.cast) do
 		if type(v) == "number" and v >= 1 then
 			ns.spellbars.cast[v] = ns.spellbars.cast[v] or {}
 			table.insert(ns.spellbars.cast[v], spellbar)
 		else
-			error("newSpell", "cast")
+			ns:error("newSpell", "cast")
 		end
 	end
 	
@@ -780,7 +749,7 @@ function ns:newSpell(spellConfig)
 		for i=1,18 do -- makes it easy. Don't have to deal with existance checking later on this way
 			table.insert(spellConfig.requiredTalent, i)
 		end 
-		error("newSpell", "talent")
+		ns:error("newSpell", "talent")
 	end
 	for i,v in pairs(spellConfig.requiredTalent) do
 
@@ -788,7 +757,7 @@ function ns:newSpell(spellConfig)
 			ns.spellbars.talent[v] = ns.spellbars.talent[v] or {}
 			table.insert(ns.spellbars.talent[v], spellbar)
 		else
-			error("newSpell", "talent")
+			ns:error("newSpell", "talent")
 		end
 	end
 	
@@ -797,7 +766,7 @@ function ns:newSpell(spellConfig)
 		spellConfig.requiredLevel = 0
 	elseif type(spellConfig.requiredLevel) ~= "number" or spellConfig.requiredLevel < 0 or spellConfig.requiredLevel > GetMaxPlayerLevel() then
 		spellConfig.requiredLevel = 0
-		error("newSpell", "requiredLevel")
+		ns:error("newSpell", "requiredLevel")
 	end
 	for i=spellConfig.requiredLevel, GetMaxPlayerLevel() do
 		ns.spellbars.level[i] = ns.spellbars.level[i] or {}
@@ -871,8 +840,8 @@ function ns:updateSettings()
 		f.texture:ClearAllPoints() -- set padding
 		f.texture:SetPoint("TOPLEFT", f, "TOPLEFT")
 		f.texture:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT")
-		f.texture:SetBackdropColor(getColor("bg"))
-		f.texture:SetBackdropBorderColor(getColor("border"))
+		f.texture:SetBackdropColor(ns:getColor("bg"))
+		f.texture:SetBackdropBorderColor(ns:getColor("border"))
 		--f.texture:SetAlpha(ns.colors.bg[4])
 		f.texture:SetFrameStrata("LOW")
 		
@@ -900,15 +869,15 @@ function ns:updateSettings()
 		
 		spellbar.bar:SetPoint("TOPLEFT", spellbar, "TOPLEFT", self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0, 0) -- inheirits width settings natually from width of spellbar and icon
 		
-		spellbar.cast:SetHeight(spellbar:GetHeight() * (getLayout("cast")[2]-getLayout("cast")[1]))
+		spellbar.cast:SetHeight(spellbar:GetHeight() * (ns:getLayout("cast")[2]-ns:getLayout("cast")[1]))
 		
-		-- spellbar.cooldown:SetHeight(spellbar:GetHeight() * (getLayout("cooldown")[2]-getLayout("cooldown")[1]))
+		-- spellbar.cooldown:SetHeight(spellbar:GetHeight() * (ns:getLayout("cooldown")[2]-ns:getLayout("cooldown")[1]))
 		
-		-- spellbar.debuff:SetHeight(spellbar:GetHeight() * (getLayout("debuff")[2]-getLayout("debuff")[1]))
+		-- spellbar.debuff:SetHeight(spellbar:GetHeight() * (ns:getLayout("debuff")[2]-ns:getLayout("debuff")[1]))
 		
-		-- spellbar.buff:SetHeight(spellbar:GetHeight() * (getLayout("buff")[2]-getLayout("buff")[1]))
+		-- spellbar.buff:SetHeight(spellbar:GetHeight() * (ns:getLayout("buff")[2]-ns:getLayout("buff")[1]))
 		
-		spellbar.gcd:SetTexture(getColor("gcd"))
+		spellbar.gcd:SetTexture(ns:getColor("gcd"))
 
 		spellbar.cast:SetPoint("TOPLEFT", ns.frame.barAnchor, "TOPLEFT", ns:getPositionByTime(0),0)
 		spellbar.cast:SetPoint("BOTTOMLEFT", ns.frame.barAnchor, "BOTTOMLEFT", ns:getPositionByTime(0),0)
@@ -949,46 +918,6 @@ function ns:applySettings()
 	end
 end
 
-
-
---  [[ GCD INDICATOR ]] --
-
-------------------------------------------
-
-
-
-function ns:startGCD()
-	if not ns.shown then return end
-
-	local start, duration = GetSpellCooldown(ns.config.gcdSpellID)
-	if start and duration and duration > 0 then
-		local past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.spellbars.active[1].bar:GetWidth(), 0
-		local secondsPerPixel = 0
-		ns.gcd:SetWidth(ns:getPositionByTime(duration))
-		ns.gcd:Show()
-		ns.gcd:SetScript("OnUpdate", function(self, elapsed, ...)
-			
-			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
-			timeElapsed = timeElapsed + elapsed
-			if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. (Smart updating?)
-				duration = duration - timeElapsed
-				timeElapsed = 0
-				local width = ns:getPositionByTime(duration)
-				if duration > 0 then
-					--print(width)
-					ns.gcd:SetWidth(width)
-					
-				else
-					ns.gcd:SetScript("OnUpdate", nil)
-					ns.gcd:Hide()
-				end
-			end
-		end)
-	end
-end
-
-
-
 -- getPositionByTime(t)
 --  t: time in seconds away from 0 to get the position of. -3 would return the position of the beginning of the spellbar by default config
 function ns:getPositionByTime(t)
@@ -998,71 +927,6 @@ function ns:getPositionByTime(t)
 	-- a value of 0 would equal 3 s in the future if we recenter the bar around t = -3
 	t = t > future and future or t < past and past or t -- limit the return to actually be in bounds
 	return t*(width/(future-past)) + (width/(future-past))*-past
-end
-
-
---   [[ buff/debuff/cooldown helpers ]]   --
-
-function ns:addCooldown(spellbar, newDuration)
-	if not spellbar or not newDuration or newDuration < ns.config.past then return end
-	--Make sure we have valid inputs and that the newDuration for the cd is longer than the previous
-	
-	local barHeight = spellbar:GetHeight()
-	local texture
-	if type(spellbar.updating["cooldown"])=="table" then -- Get existing texture if it already exists
-		texture = spellbar.updating["cooldown"][2]
-		
-		
-	else
-		texture = ns:getTempTexture(spellbar)
-		
-		texture:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*getLayout("cooldown")[1]) -- texture init setup
-		texture:SetPoint("LEFT", ns.frame.barAnchor, "LEFT")
-		texture:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-getLayout("cooldown")[2]))
-		texture:SetDrawLayer("BORDER", 1)
-		texture:SetTexture(ns.config.texture)
-		texture:SetVertexColor(getColor("cooldown"))
-		texture:SetBlendMode(ns.blendModes.cooldown)
-		texture:SetWidth(ns:getPositionByTime(newDuration))
-		texture:Show()
-		
-	end
-	
-	
-	spellbar.updating["cooldown"] = {newDuration,texture} -- update the updating info for this bar
-	
-
-	-- Handle the movement of the bar
-	local past, future, width, timeElapsed = ns.config.past, ns.config.future, spellbar:GetWidth(), 0
-	local secondsPerPixel = 0
-	local duration = spellbar.updating["cooldown"][1]
-	ns:addSpellUpdate(spellbar, "cooldown", function(self, elapsed, ...)
-		if not spellbar:IsVisible() then
-			ns:removeSpellUpdate(spellbar, "cooldown")
-			ns:freeTempTexture(texture)
-			spellbar.updating["cooldown"] = nil
-		else
-			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
-			timeElapsed = timeElapsed + elapsed
-			if timeElapsed >= secondsPerPixel*.3 then -- Limit it to only when we need to move more than 1 pixel.
-				duration = duration - timeElapsed
-				timeElapsed = 0
-				if duration > past then -- If the duration's more than the past time. (-3 by default)
-					texture:SetWidth(ns:getPositionByTime(duration))
-				else
-					ns:removeSpellUpdate(spellbar, "cooldown")
-					ns:freeTempTexture(texture)
-					spellbar.updating["cooldown"] = nil
-				end
-			end
-		end
-	end)
-	
-end
-
-function ns:addDebuff(spellbar, duration, tickSpeed)
-	print("Added debuff with duration " .. duration .. " to spellbar " .. spellbar.index .. " with tick speed " .. (tickSpeed or "no ticks"))
-	
 end
 
 
@@ -1146,6 +1010,215 @@ function ns:removeSpellUpdate(spellbar, key)
 		spellbar.updateCount = spellbar.updateCount - 1
 	end
 end
+
+
+
+-- [[ MODULE API ]] --
+
+ns.modules = {}
+
+ns:addError("addModule", {
+	inputs = "Error in module addition. Both a key and an options table are required",
+	moduleExists = "That module already exists.",
+})
+function ns:addModule(key, options)
+	if not key or not options or type(options) ~= "table" then ns:error("addModule", "inputs") return end
+	if ns.modules[key] then ns:error("addModule", "moduleExists") return end
+	
+	ns.modules[key] = options
+	
+	if DEBUG then
+		ns:print("Added Module " .. key)
+	end
+	
+end
+
+
+function ns:enableModule(key)
+	if ns.modules[key] and ns.modules[key].active then
+		ns.modules[key].onEnable()
+		ns.modules[key].active = true
+	end
+end
+
+function ns:disableModule(key)
+	if ns.modules[key] and not ns.modules[key].active then
+		ns.modules[key].onDisable()
+		ns.modules[key].active = nil
+	end
+end
+
+
+-- registerModuleEvent:
+--   event: string of event to register and handle
+--   handler: function accepting inputs event, ... which fires when event happens. ... contains event specific args such as UnitID for UNIT_HEALTH
+ns:addError("registerModuleEvent", {inputs = "one or more of inputs moduleKey, event, handler are not defined"})
+function ns:registerModuleEvent(moduleKey, handler, ...)
+	if select('#',...) == 0 or not handler or not moduleKey then ns:error("registerModuleEvent", "inputs") return end
+	if #ns.events == 0 then -- Just to make sure that we have defined the event-handler code already
+		ns.frame:SetScript("OnEvent", function(self, event, ...)
+			if ns.events[event] then
+				for moduleKey,handler in pairs(ns.events[event]) do
+					handler(event, ...)
+				end
+			end
+		end)
+	end
+	
+	local tmp = 1
+	local event = ...
+	while true do
+		event = select(tmp,...)
+		if event then
+			if not ns.events[event] then
+				ns.frame:RegisterEvent(event)
+				ns.events[event] = {}
+			end
+			ns.events[event][moduleKey] = handler
+		else
+			break
+		end
+		tmp = tmp + 1
+	end
+end
+
+-- unregisterModuleEvent:
+--   moduleKey: key of module
+--   ...: string(s) of event(s) to unregister for moduleKey
+
+ns:addError("unregisterModuleEvent", {inputs = "one or more inputs of moduleKey, event(s) are required and were not provided"})
+function ns:unregisterModuleEvent(moduleKey, ...)
+	if select('#',...) == 0 or not moduleKey then ns:error("registerModuleEvent", "inputs") return end
+
+	local tmp = 1
+	local event = ...
+	while true do
+		event = select(tmp,...)
+		if event then
+			if ns.events[event][moduleKey] then
+				ns.events[event][moduleKey] = nil
+				local test
+				for _,_ in pairs(ns.events[event]) do
+					test = true
+					break
+				end
+				if not test then -- if we have no active event handlers
+					ns.frame:UnregisterEvent(event)
+				end
+			end
+		else
+			break
+		end
+		tmp = tmp + 1
+	end
+
+
+
+--  [[ GCD INDICATOR ]] --
+
+------------------------------------------
+
+
+
+function ns:startGCD()
+	if not ns.shown then return end
+
+	local start, duration = GetSpellCooldown(ns.config.gcdSpellID)
+	if start and duration and duration > 0 then
+		local past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.spellbars.active[1].bar:GetWidth(), 0
+		local secondsPerPixel = 0
+		ns.gcd:SetWidth(ns:getPositionByTime(duration))
+		ns.gcd:Show()
+		ns.gcd:SetScript("OnUpdate", function(self, elapsed, ...)
+			
+			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
+			timeElapsed = timeElapsed + elapsed
+			if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. (Smart updating?)
+				duration = duration - timeElapsed
+				timeElapsed = 0
+				local width = ns:getPositionByTime(duration)
+				if duration > 0 then
+					--print(width)
+					ns.gcd:SetWidth(width)
+					
+				else
+					ns.gcd:SetScript("OnUpdate", nil)
+					ns.gcd:Hide()
+				end
+			end
+		end)
+	end
+end
+
+
+
+
+
+
+--   [[ buff/debuff/cooldown helpers ]]   --
+
+function ns:addCooldown(spellbar, newDuration)
+	if not spellbar or not newDuration or newDuration < ns.config.past then return end
+	--Make sure we have valid inputs and that the newDuration for the cd is longer than the previous
+	
+	local barHeight = spellbar:GetHeight()
+	local texture
+	if type(spellbar.updating["cooldown"])=="table" then -- Get existing texture if it already exists
+		texture = spellbar.updating["cooldown"][2]
+		
+		
+	else
+		texture = ns:getTempTexture(spellbar)
+		
+		texture:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*ns:getLayout("cooldown")[1]) -- texture init setup
+		texture:SetPoint("LEFT", ns.frame.barAnchor, "LEFT")
+		texture:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-ns:getLayout("cooldown")[2]))
+		texture:SetDrawLayer("BORDER", 1)
+		texture:SetTexture(ns.config.texture)
+		texture:SetVertexColor(ns:getColor("cooldown"))
+		texture:SetBlendMode(ns.blendModes.cooldown)
+		texture:SetWidth(ns:getPositionByTime(newDuration))
+		texture:Show()
+		
+	end
+	
+	
+	spellbar.updating["cooldown"] = {newDuration,texture} -- update the updating info for this bar
+	
+
+	-- Handle the movement of the bar
+	local past, future, width, timeElapsed = ns.config.past, ns.config.future, spellbar:GetWidth(), 0
+	local secondsPerPixel = 0
+	local duration = spellbar.updating["cooldown"][1]
+	ns:addSpellUpdate(spellbar, "cooldown", function(self, elapsed, ...)
+		if not spellbar:IsVisible() then
+			ns:removeSpellUpdate(spellbar, "cooldown")
+			ns:freeTempTexture(texture)
+			spellbar.updating["cooldown"] = nil
+		else
+			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
+			timeElapsed = timeElapsed + elapsed
+			if timeElapsed >= secondsPerPixel*.3 then -- Limit it to only when we need to move more than 1 pixel.
+				duration = duration - timeElapsed
+				timeElapsed = 0
+				if duration > past then -- If the duration's more than the past time. (-3 by default)
+					texture:SetWidth(ns:getPositionByTime(duration))
+				else
+					ns:removeSpellUpdate(spellbar, "cooldown")
+					ns:freeTempTexture(texture)
+					spellbar.updating["cooldown"] = nil
+				end
+			end
+		end
+	end)
+	
+end
+
+function ns:addDebuff(spellbar, duration, tickSpeed)
+	print("Added debuff with duration " .. duration .. " to spellbar " .. spellbar.index .. " with tick speed " .. (tickSpeed or "no ticks"))
+	
+end
+
 
 
 local lastGCDTime = 0
