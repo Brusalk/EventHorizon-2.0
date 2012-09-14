@@ -4,8 +4,8 @@
 ## Version: 2.0.0
 ## Dependencies:
 ## OptDeps: SharedMedia
-## SavedVariables: EventHorizonDBG
-## SavedVariablesPerCharacter: EventHorizonDB
+## SavedVariables: EventHorizonSavedVars
+## SavedVariablesPerCharacter: EventHorizonSavedVarsPerCharacter
 
 localizations.lua
 
@@ -13,6 +13,9 @@ config.lua
 myconfig.lua
 EventHorizon.lua
 
+# Core Modules:
 
-
-
+modules\EventHorizon_Buff.lua
+modules\EventHorizon_Cooldown.lua
+modules\EventHorizon_Debuff.lua
+modules\EventHorizon_GCD.lua

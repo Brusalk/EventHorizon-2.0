@@ -1,7 +1,8 @@
 EventHorizon Plugin API:
 
-EventHorizon:RegisterModule(key, {
+EventHorizon:addModule(moduleKey, {
 	description = "Description of what the module does",
+	defaultState = boolean, -- True if on by defualt. False/nil if disabled by default
 	onDisable = function(...)
 		--Do stuff to disable all the functionality of your module
 	end,
@@ -9,16 +10,102 @@ EventHorizon:RegisterModule(key, {
 		--Do stuff to enable all the functionality of your module
 	end,
 	onInit = function(...)
-		--Do anything you need to do to initialize your module. Runs once on player login. onEnable is called after this is done executing, so this function to only one-time stuff
+		--Do stuff on first init. 
 	end,
+	table = {}, -- This table should hold all frames, variables, etc that someone may want to have access to outside of your module file.
 })
 
-EventHorizon:EnableModule(key)
+EventHorizon:enableModule(moduleKey)
 
-EventHorizon:DisableModule(key)
+EventHorizon:disableModule(moduleKey)
 
 -- Module Events
 
-EventHorizon:registerModuleEvent(function(
+EventHorizon:registerModuleEvent(moduleKey, function(event, ...), "EVENT_1", "EVENT_2", ...)
+
+EventHorizon:unregisterModuleEvent(moduleKey, "EVENT_1", "EVENT_2", ...)
+
+
+-- Module Options
+EventHorizon:addOption(moduleKey, optionsKey, defaultSetting, validSettingTypesAndValues)
+	-- optionsKey: string to use as the identifier for this new option
+	-- defaultSettings...: a table of tables. Each sub-table represents the type as the first value, and allowed range as the second
+	--    Example:
+	--       defaultSettings... = { {"string"}, {"number", 0, 15}, {"table"} }
+	--		   This makes it so that the valid options are any string, any table and any number between 0 and 15. If the provided value isn't within those, then the default is used and the user is warned
+	--  	   If nothing provided then all values are assumed valid
+	
+EventHorizon:addColor(moduleKey, optionsKey, {r, g, b, alpha}) -- Add defaults with key
+
+EventHorizon:addBlendMode(moduleKey, optionsKey, defaultBlendMode) -- defaultBlendMode as a string with given key
+
+EventHorizon:addLayout(moduleKey, optionsKey, {top = #, bottom = #}) -- Add a default layout to the options list with given key
+
+-- Module specific newSpell() settings
+
+EventHorizon:addSpellbarOption(moduleKey, optionsKey, defaultSetting, validSettingTypesAndValues)
+	-- optionsKey: string to use as the identifier for this new option
+	-- defaultSettings...: a table of tables. Each sub-table represents the type as the first value, and allowed range as the second
+	--    Example:
+	--       defaultSettings... = { {"string"}, {"number", 0, 15}, {"table"} }
+	--		   This makes it so that the valid options are any string, any table and any number between 0 and 15. If the provided value isn't within those, then the default is used and the user is warned
+	--  	   If nothing provided then all values are assumed valid
+	
+--[[
+
+Using addSpellbarOption along with hookSpellbarCreation allows the module to add spellbar functionality like cooldowns, GCDs, debuffs with actual user options for each bar
+
+The default EventHorizon core uses this functionality for the default Buff, Cooldown, Debuff and GCD functionality.
+
+
+]]--	
+	
+-- Hook Spellbar Settings
+
+EventHorizon:hookSpellbarCreation(moduleKey, function(spellbar) -- Hook into spellbar creation. When a spellbar is created, this function is called and given the spellbar table as a parameter
+	-- Do stuff to set up spellbar specific stuff
+	-- This is actually called AFTER the default EH is completely set up due to technical limitations, but to the user should appear no different
+	
+	-- Can get access to your modules' spellbar options variable via
+	-- spellbar.spellOptions[optionsKey].value
+end)
+
+EventHorizon:hookSpellbarShow(moduleKey, function(spellbar) -- Hook into the show for spellbars. When a spellbar is shown after being hidden, this function is called and given the shown spellbar table as a parameter
+	-- Do stuff to do when spellbar is shown after being hidden
+end)
+
+EventHorizon:hookSpellbarHide(moduleKey, function(spellbar) -- Hook into the hide for spellbars. When a spellbar is hidden after being shown, this function is called and given the hidden spellbar table as a parameter
+	-- Do stuff to do when spellbar is hidden after being shown
+end)
+
+EventHorizon:hookSpellbarUpdate(moduleKey, function(spellbar) -- Hook into the routine which updates the appearance of this spellbar.
+	-- Do stuff to update your stuff on the changed spellbar
+end)
+
+
+-- Module savedVariables
+
+EventHorizon:addSavedVariable(moduleKey, variableToSave) -- register a variable to save for this module. Each module gets one. If you want to store more than one then put put everything in a table and save that. If savedVar already exists does nothing. Returns true if successfully added and not previously added.
+
+EventHorizon:getSavedVariable(moduleKey) -- get the module's saved variable
+
+EventHorizon:addSavedVariablePerCharacter(moduleKey, variablePerCharacterToSave) -- register a variable to save for this module on this specific character. Same rules as global
+
+EventHorizon:getSavedVariablePerCharacter(moduleKey) -- get the module's saved variable per character
+
+
+
+-- EventHorizon settings functions
+
+EventHorizon:getColor(key) -- Get color table for given key as a table. {r,b,g,a} or {r,b,g} or {classColored, burn, alpha}
+
+EventHorizon:getBlendMode(key) -- Get blendmode for given key. String
+
+EventHorizon:getLayout(key) -- Get layout for given key as a table. {top = #, bottom = #}
+
+
+
+
+
 
 

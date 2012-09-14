@@ -7,7 +7,7 @@ local L = ns.localization
 
 
 ns.frame = CreateFrame("frame") -- eventFrame + vars holder
-ns.gcd = CreateFrame("frame") -- GCD Anchor Frame
+
 ns.frame.barAnchor = CreateFrame("frame") -- Frame at t=0
 ns.frame.barAnchor:SetWidth(1)
 ns.tooltip = CreateFrame("GameTooltip", "EventHorizonScanTooltip", nil, "GameTooltipTemplate")
@@ -27,7 +27,14 @@ local function print(...)
 	printBlizz('EventHorizon: '.. strjoin(" ", printhelp(...)))
 end
 
-function round(num, idp)
+local function debug(...)
+	if DEBUG then
+		printBlizz('EHZ-Debug: ' .. strjoin(" ", printhelp(...)))
+	end
+end
+
+
+local function round(num, idp)
     local mult = 10^(idp or 0)
     if num >= 0 then return math.floor(num * mult + 0.5) / mult
     else return math.ceil(num * mult - 0.5) / mult end
@@ -130,26 +137,36 @@ end
 
 ns:addError("getColor", {inputs = "color information must be a table of {r,g,b,a} or {true, burn%, alpha} for class colored"})
 function ns:getColor(key)
-	print(key, " : ", ns.colors[key])
+	--print(key, " : ", ns.colors[key])
 	if not key or not ns.colors[key] or type(ns.colors[key]) ~= "table" or #ns.colors[key]<3 or #ns.colors[key]>4 then ns:error("getColor", "inputs") return end
 	local classColor = RAID_CLASS_COLORS[select(2,UnitClass("player"))]
 	if ns.colors[key][1] == true then -- Class coloring/burn/alpha
-		return classColor.r * ns.colors[key][2], classColor.g * ns.colors[key][2], classColor.b * ns.colors[key][2], ns.colors[key][3]
+		local burn = ns.colors[key][2]
+		return {classColor.r * burn, classColor.g * burn, classColor.b * burn, ns.colors[key][3]}
 	elseif type(ns.colors[key][1]) == "number" then
-		return unpack(ns.colors[key])
+		return ns.colors[key]
+	else
+		return {1,1,1,0.5} -- Arbitrary Default is Arbitrary
 	end
 end
 
+function ns:getBlendMode(key)
+	
+	return ns.blendModes[key] or "BLEND"
+
+end
 
 function ns:getLayout(key)
 	if ns.layouts[key] then
-		return {ns.layouts[key].top, ns.layouts[key].bottom}
+		return ns.layouts[key]
 	else
-		return {ns.layouts.default.top, ns.layouts.default.bottom}
+		return {top = ns.layouts.default.top, bottom = ns.layouts.default.bottom}
 	end
 end
 
-
+function ns:getConfigOption(key)
+	return ns.config[key]
+end
 
 -- [[ SCOPE TABLES AND VARS ]] --
 
@@ -211,7 +228,6 @@ ns.defaultColors = {
 	bg = {0,0,0,0.6}, 				-- Color of the frame's background. Default = {0,0,0,0.6} (black, 60% opacity)
 	barBackground = {1,1,1,0.2},           -- Color of the background of individual bars
 	border = {1,1,1,1},						-- Color of the frame's border. Default = {1,1,1,1} (white, fully opaque)
-	gcd = {1,1,1,0.5},						-- Color of the GCD indicator. Default = {1,1,1,0.5}
 }
 ns.defaultBlendModes = {
 	debuffTick = "ADD",		
@@ -225,8 +241,6 @@ ns.defaultBlendModes = {
 	bg = "BLEND", 				
 	barBackground = "BLEND",          
 	border = "BLEND",		
-	gcd = "BLEND",				-- If setup to have a moving line rather than functioning like a cast, inheirits off of this
-	gcdLine = "ADD",   			-- This is for the line 1 GCD in the future if enabled.
 }
 ns.defaultLayouts = {
 	debuffTick = {				-- debuff Tick markers.
@@ -265,15 +279,6 @@ ns.defaultLayouts = {
 		top = 0,
 		bottom = 1,
 	},	         
-	gcd =  {					-- If setup to have a moving line rather than functioning like a cast, inheirits off of this
-		top = 0,
-		bottom = 1,
-	},				
-	gcdLine = {	   				-- This is for the line 1 GCD in the future if enabled.
-		top = 0,
-		bottom = 1,
-	},
-
 	recastZone = {				-- The recast line for spells like Vampiric Touch and Immolate.
 		top = 0,
 		bottom = 0.25,
@@ -355,7 +360,7 @@ spellbar.config = {
 --   self: spellbar reference
 --   spellID: spellID to set icon to
 --   stacks: number to display on the stacks counter
-ns:addError("updateIcon", {inputs = "inputs spellBar were not of correct type or not all defined"})
+ns:addError("updateIcon", {inputs = "input spellBar was not of correct type or not all defined"})
 local function updateIcon(self, spellID, stacks)
 	if not self or not self.spellConfig then ns:error("updateIcon", "inputs") return end
 	--Quick Note: This assumes that the spellbar's dims have been updated and are correct
@@ -381,7 +386,6 @@ local function updateIcon(self, spellID, stacks)
 			self.icon.texture:SetTexture(select(3,GetSpellInfo(spellID)))
 		end
 		self.icon.texture:SetTexCoord(left, right, top, bottom)
-		print(spellID)
 	end
 	if stacks then
 		self.icon.stacks:SetText(stacks > 0 and "" ..stacks or "")
@@ -468,7 +472,7 @@ local function updateSpellbarSettings(self)
 	end
 	--castbar
 	self.cast:SetTexture(ns.config.texture)
-	self.cast:SetVertexColor(ns:getColor("cast"))
+	self.cast:SetVertexColor(unpack(ns:getColor("cast")))
 	self.cast:SetBlendMode(ns.blendModes.cast)
 	
 	-- self.cooldown:SetTexture(ns.config.texture)
@@ -484,7 +488,7 @@ local function updateSpellbarSettings(self)
 	-- self.buff:SetBlendMode(ns.blendModes.buff)
 	
 	self.bar.texture:SetTexture(ns.config.barTexture)
-	self.bar.texture:SetVertexColor(ns:getColor("barBackground"))
+	self.bar.texture:SetVertexColor(unpack(ns:getColor("barBackground")))
 	--print(ns:getColor("barBackground"))
 	self.bar.texture:SetBlendMode(ns.blendModes.barBackground)
 
@@ -518,7 +522,7 @@ function ns:newSpell(spellConfig)
 	-- spellbar.debuff = spellbar:CreateTexture()
 	-- spellbar.buff = spellbar:CreateTexture()
 	-- spellbar.cooldown = spellbar:CreateTexture()
-	spellbar.gcd = ns.gcd:CreateTexture()
+	
 
 		
 	spellbar.icon:SetPoint("TOPLEFT", spellbar, "TOPLEFT") -- inheirits height settings from spellbar
@@ -551,20 +555,7 @@ function ns:newSpell(spellConfig)
 	-- spellbar.debuff:Hide()
 	spellbar.cast:Hide()
 	
-	
-	spellbar.gcd:SetPoint("TOP", spellbar, "TOP")
-	spellbar.gcd:SetPoint("BOTTOM", spellbar, "BOTTOM")
-	spellbar.gcd:SetPoint("LEFT", ns.gcd, "RIGHT")
-	spellbar.gcd:SetWidth(1)
-	spellbar:SetScript("OnHide", function(self) -- Make it so this bars GCD is effectively parented to both ns.gcd (which controls the position of all gcd bars) and the spellbar itself
-		self.gcd:Hide()
-	end)
-	spellbar:SetScript("OnShow", function(self)
-		self.gcd:Show()
-	end)
 
-
-	
 
 	spellbar.bar.texture:SetDrawLayer("BACKGROUND")
 	spellbar.bar:SetFrameStrata("LOW")
@@ -573,8 +564,6 @@ function ns:newSpell(spellConfig)
 	-- spellbar.debuff:SetDrawLayer("BORDER", 3)
 	-- spellbar.buff:SetDrawLayer("BORDER", 2)
 	-- spellbar.cooldown:SetDrawLayer("BORDER", 1)
-	spellbar.gcd:SetDrawLayer("BORDER", 5)
-	
 	
 	
 	--spellbar specific functions
@@ -593,7 +582,25 @@ function ns:newSpell(spellConfig)
 		buff = {},
 		debuff = {},
 	} 
+	
 	spellbar.spellConfig = spellConfig -- spellbar specific settings
+	
+	
+	spellbar:SetScript("OnHide", function()
+		for moduleKey, fxn in pairs(spellbar.hooks.onHide) do
+			if ns.modules[moduleKey].active then
+				fxn(spellbar)
+			end
+		end
+	end)
+	
+	spellbar:SetScript("OnShow", function()
+		for moduleKey, fxn in pairs(spellbar.hooks.onHide) do
+			if ns.modules[moduleKey].active then
+				fxn(spellbar)
+			end
+		end
+	end)
 	
 	
 	table.insert(ns.spellbars.index, spellbar) -- insert spellbar into the right tables as well as make sure values are within bounds
@@ -840,8 +847,8 @@ function ns:updateSettings()
 		f.texture:ClearAllPoints() -- set padding
 		f.texture:SetPoint("TOPLEFT", f, "TOPLEFT")
 		f.texture:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT")
-		f.texture:SetBackdropColor(ns:getColor("bg"))
-		f.texture:SetBackdropBorderColor(ns:getColor("border"))
+		f.texture:SetBackdropColor(unpack(ns:getColor("bg")))
+		f.texture:SetBackdropBorderColor(unpack(ns:getColor("border")))
 		--f.texture:SetAlpha(ns.colors.bg[4])
 		f.texture:SetFrameStrata("LOW")
 		
@@ -877,37 +884,50 @@ function ns:updateSettings()
 		
 		-- spellbar.buff:SetHeight(spellbar:GetHeight() * (ns:getLayout("buff")[2]-ns:getLayout("buff")[1]))
 		
-		spellbar.gcd:SetTexture(ns:getColor("gcd"))
+		
 
 		spellbar.cast:SetPoint("TOPLEFT", ns.frame.barAnchor, "TOPLEFT", ns:getPositionByTime(0),0)
 		spellbar.cast:SetPoint("BOTTOMLEFT", ns.frame.barAnchor, "BOTTOMLEFT", ns:getPositionByTime(0),0)
 		
 		prevSpellbar = spellbar
+		
+		-- Module Hooks:
+	
+		for moduleKey, fxn in pairs(spellbarHooks.onSpellbarSettingsUpdate) do
+			if ns.modules[moduleKey].active then
+				fxn(spellbar)
+			end
+		end
 
 	end
 	
 	-- end spellbar settings
 	
-	-- start GCD setting
-	
-	-- end GCD setting
-	
+
 	--store the width of the spellbar.bar
 	ns.frame.barAnchor:SetPoint("TOPLEFT", ns.frame, "TOPLEFT", ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
 	ns.frame.barAnchor:SetPoint("BOTTOMLEFT", ns.frame, "BOTTOMLEFT",  ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
-	ns.gcd:SetPoint("TOPLEFT", ns.frame.barAnchor, "TOPLEFT")
-	ns.gcd:SetPoint("BOTTOMLEFT", ns.frame.barAnchor, "BOTTOMLEFT")
-
-	--Update the gcd frame
+	
 	updating = nil
 end
 
 function ns:applySettings()
 	if updating then return end
 	ns:checkRequirements()
-	for i,spellbar in ipairs(ns.spellbars.index) do
-		spellbar:Hide()
+	
+	for i,spellbar in ipairs(ns.spellbars.index) do -- Hide all non-active bars
+		local active
+		for v, activeSpellbar in ipairs(ns.spellbars.active) do
+			if spellbar == activeSpellbar then
+				active = true
+			end
+		end
+		
+		if not active then
+			spellbar:Hide()
+		end
 	end
+	
 	if #ns.spellbars.active > 0 then -- make sure we actually have bars to show.
 		ns.frame:Show()
 		ns.shown = true
@@ -919,7 +939,7 @@ function ns:applySettings()
 end
 
 -- getPositionByTime(t)
---  t: time in seconds away from 0 to get the position of. -3 would return the position of the beginning of the spellbar by default config
+--  t: time in seconds away from 0 to get the position of. -3 would return the position of the beginning of the spellbar by default config. Use this in conjunction with a frame anchored to ns.frame.barAnchor to put stuff on the spellbar.
 function ns:getPositionByTime(t)
 	local past, future, width = ns.config.past, ns.config.future, ns.spellbars.active[1].bar:GetWidth()
 	-- each pixel is (future-past)/width seconds long
@@ -1022,30 +1042,47 @@ ns:addError("addModule", {
 	moduleExists = "That module already exists.",
 })
 function ns:addModule(key, options)
+	if key == "core" then return end
 	if not key or not options or type(options) ~= "table" then ns:error("addModule", "inputs") return end
 	if ns.modules[key] then ns:error("addModule", "moduleExists") return end
 	
 	ns.modules[key] = options
+	EventHorizonSavedVars.modules[key] = EventHorizonSavedVars.modules[key] or {EHModule_FirstRun = true}
 	
-	if DEBUG then
-		ns:print("Added Module " .. key)
+	options.onInit()
+	
+	if EventHorizonSavedVars.modules[key].active or (options.defaultState == true and EventHorizonSavedVars.modules[key].EHModule_FirstRun) then -- if either it's been previously enabled or it's the first run of the module and it defaults on then
+		ns:enableModule(key)
+	else
+		ns:disableModule(key)
 	end
+	
+	
+	debug("Added Module " .. key)
 	
 end
 
 
 function ns:enableModule(key)
-	if ns.modules[key] and ns.modules[key].active then
+	if key == "core" then return end
+	if ns.modules[key] and not ns.modules[key].active then
 		ns.modules[key].onEnable()
 		ns.modules[key].active = true
+		EventHorizonSavedVars.modules[key].active = true
 	end
+	
+	debug("Enabled Module " .. key)
 end
 
 function ns:disableModule(key)
-	if ns.modules[key] and not ns.modules[key].active then
+	if key == "core" then return end
+	if ns.modules[key] and ns.modules[key].active then
 		ns.modules[key].onDisable()
 		ns.modules[key].active = nil
+		EventHorizonSavedVars.modules[key].active = nil
 	end
+	
+	debug("Disabled Module " .. key)
 end
 
 
@@ -1054,7 +1091,10 @@ end
 --   handler: function accepting inputs event, ... which fires when event happens. ... contains event specific args such as UnitID for UNIT_HEALTH
 ns:addError("registerModuleEvent", {inputs = "one or more of inputs moduleKey, event, handler are not defined"})
 function ns:registerModuleEvent(moduleKey, handler, ...)
-	if select('#',...) == 0 or not handler or not moduleKey then ns:error("registerModuleEvent", "inputs") return end
+	if select('#',...) == 0 or not handler or not moduleKey then ns:error("registerModuleEvent", "inputs") return end	
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to register an event. Ensure that the module is enabled") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to register event while disabled") return end
+	
 	if #ns.events == 0 then -- Just to make sure that we have defined the event-handler code already
 		ns.frame:SetScript("OnEvent", function(self, event, ...)
 			if ns.events[event] then
@@ -1089,6 +1129,8 @@ end
 ns:addError("unregisterModuleEvent", {inputs = "one or more inputs of moduleKey, event(s) are required and were not provided"})
 function ns:unregisterModuleEvent(moduleKey, ...)
 	if select('#',...) == 0 or not moduleKey then ns:error("registerModuleEvent", "inputs") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to register an event. Ensure that the module is enabled") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to register event while disabled") return end
 
 	local tmp = 1
 	local event = ...
@@ -1111,44 +1153,162 @@ function ns:unregisterModuleEvent(moduleKey, ...)
 		end
 		tmp = tmp + 1
 	end
+end
 
 
+-- [[ Module Options Table Functions ]] --
 
---  [[ GCD INDICATOR ]] --
+function ns:addColor(moduleKey, optionsKey, color)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a color. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a color while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
+	if not optionsKey or type(color) ~= "table" or #color <= 2 or #color > 4 then error("Error in inputs for EventHorizon:addColor. Check the API for valid values/input types") return end
+	if ns.colors[optionsKey] then error("Input for optionsKey for EventHorizon:addColor() already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
+		
+	ns.defaultColors[optionsKey] = color
+	ns.colors = mergeDef(ns.defaultColors, ns.cColors, ns.pColors)
+	
+	debug("Added ", color, " to color table")
+end
 
-------------------------------------------
+
+function ns:addBlendMode(moduleKey, optionsKey, defaultBlendMode)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a blend mode. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a blend mode while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
+	if not optionsKey or type(defaultBlendMode) ~= "string" then error("Error in inputs for EventHorizon:addBlendMode. Check the API for valid values/input types") return end
+	if ns.blendModes[optionsKey] then error("Input for optionsKey for EventHorizon:addBlendMode() already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
+		
+	ns.defaultBlendModes[optionsKey] = defaultBlendMode
+	ns.blendModes = mergeDef(ns.defaultBlendModes, ns.cBlendModes, ns.pBlendModes)
+	
+	debug("Added ", defaultBlendMode, " to blendModes table")
+end
 
 
+function ns:addLayout(moduleKey, optionsKey, layoutTable)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a layout. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a layout while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
+	if not optionsKey or type(layoutTable) ~= "table" or not (layoutTable.top and layoutTable.bottom) or type(layoutTable.top) ~= "number" or type(layoutTable.bottom) ~= "number" then error("Error in inputs for EventHorizon:addLayout. Check the API for valid values/input types") return end
+	if ns.layouts[optionsKey] then error("Input for optionsKey for EventHorizon:addLayout already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
+		
+	ns.defaultLayouts[optionsKey] = layoutTable
+	ns.layouts = mergeDef(ns.defaultLayouts, ns.cLayouts, ns.pLayouts)
+	
+	debug("Added table: ", unpack(layoutTable), " to layout table")
+end
 
-function ns:startGCD()
-	if not ns.shown then return end
 
-	local start, duration = GetSpellCooldown(ns.config.gcdSpellID)
-	if start and duration and duration > 0 then
-		local past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.spellbars.active[1].bar:GetWidth(), 0
-		local secondsPerPixel = 0
-		ns.gcd:SetWidth(ns:getPositionByTime(duration))
-		ns.gcd:Show()
-		ns.gcd:SetScript("OnUpdate", function(self, elapsed, ...)
-			
-			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
-			timeElapsed = timeElapsed + elapsed
-			if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. (Smart updating?)
-				duration = duration - timeElapsed
-				timeElapsed = 0
-				local width = ns:getPositionByTime(duration)
-				if duration > 0 then
-					--print(width)
-					ns.gcd:SetWidth(width)
-					
-				else
-					ns.gcd:SetScript("OnUpdate", nil)
-					ns.gcd:Hide()
-				end
-			end
-		end)
+-- [[ Module specific newSpell() settings functions ]] --
+
+local newSpellModuleOptions = {}
+
+function ns:addSpellbarOption(moduleKey, optionsKey, default, valid)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a newSpell() option. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+
+	if not newSpellModuleOptions[optionsKey] and default then
+		
+	end	
+end
+
+
+-- [[ Hook Spellbar Settings ]] --
+
+local spellbarHooks = {
+		onShow = {},
+		onHide = {},
+		onSettingsUpdate = {},
+		onCreation = {},
+}
+
+
+function ns:hookSpellbarCreation(moduleKey, handler)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to hook into spellbarCreation. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+
+	if not spellbarHooks.onCreation[moduleKey] then
+		spellbarHooks.onCreation[moduleKey] = handler
 	end
 end
+
+function ns:hookSpellbarShow(moduleKey, handler, override)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to hook into spellbarShow. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+
+	if not spellbarHooks.onShow[moduleKey] or (spellbarHooks.onShow[moduleKey] and override) then
+		spellbarHooks.onShow[moduleKey] = handler
+	end		
+end
+
+function ns:hookSpellbarHide(moduleKey, handler, override)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to hook into spellbarHide. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	
+	if not spellbarHooks.onHide[moduleKey] or (spellbarHooks.onHide[moduleKey] and override) then
+		spellbarHooks.onHide[moduleKey] = handler
+	end		
+end
+
+function ns:hookSpellbarSettingsUpdate(moduleKey, handler, override)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to hook into spellbarSettingsUpdate. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	
+	if not spellbarHooks.onSettingsUpdate[moduleKey] or (spellbarHooks.onSettingsUpdate[moduleKey] and override) then
+		spellbarHooks.onSettingsUpdate[moduleKey] = handler
+	end			
+end
+
+
+-- [[ Module SavedVariable access ]] --
+
+EventHorizonSavedVars = EventHorizonSavedVars or {
+	modules = {},
+	module
+}
+EventHorizonSavedVarsPerCharacter = EventHorizonSavedVarsPerCharacter or {
+	
+}
+
+local DB = EventHorizonSavedVars
+local DBPC = EventHorizonSavedVarsPerCharacter
+
+function ns:addSavedVariable(moduleKey, var)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a saved variable. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	
+	DB.moduleSavedVars = DB.moduleSavedVars or {}
+	
+	if not DB.moduleSavedVars[moduleKey] then
+		DB.moduleSavedVars[moduleKey] = var
+		return true
+	end
+end
+
+function ns:getSavedVariable(moduleKey)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to get a saved variable. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+
+	return DB.moduleSavedVars[moduleKey]
+end
+
+function ns:addSavedVariablePerCharacter(moduleKey, var)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a saved variable for this character. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	
+	DBPC.moduleSavedVars = DBPC.moduleSavedVars or {}
+	
+	if not DBPC.moduleSavedVars[moduleKey] then
+		DBPC.moduleSavedVars[moduleKey] = var
+		return true
+	end
+end
+
+function ns:getSavedVariablePerCharacter(moduleKey)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to get a saved variable for this character. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+
+	return DBPC.moduleSavedVars[moduleKey]
+end
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1221,30 +1381,11 @@ end
 
 
 
-local lastGCDTime = 0
-addEvent(function(...)
-	local curTime = GetTime()
-	local gcdTime = select(2,GetSpellCooldown(ns.config.gcdSpellID))
-	gcdTime = gcdTime > 0.5 and gcdTime or 1.5
-	if curTime > gcdTime/2+lastGCDTime then -- If it's been at least half a GCD then update the GCD
-		ns:startGCD()
-		lastGCDTime = curTime
-	end
-	--End GCD Stuff
-	
-	
-	
-	
-	
-	
-end,
-"SPELL_UPDATE_COOLDOWN"
-)
 
 
 
 
-addEvent(function(self, event, unit)
+ns:registerModuleEvent("EventHorizon_Debuff", function(self, event, unit)
 	for _, spellbar in ipairs(ns.spellbars.active) do
 		if spellbar.spellConfig.debuff[1] > 0 then -- We have a debuff to look at
 			for i=1, 40 do
@@ -1281,7 +1422,7 @@ end,
 --  [[ ADDON INIT FUNCTIONS ]] --
 local enable = true
 local addonInit = true
-addEvent(function(...)
+ns:registerModuleEvent("core", function(...)
 	if not enable then return end
 	local class = select(2,UnitClass('player'))
 	
@@ -1293,18 +1434,18 @@ addEvent(function(...)
 	ns.frame:SetScript("OnUpdate", function() 
 		
 		if GetShapeshiftForm() <= GetNumShapeshiftForms() then
+		
+			ns.frame.barAnchor:SetPoint("TOPLEFT", ns.frame, "TOPLEFT", ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
+			ns.frame.barAnchor:SetPoint("BOTTOMLEFT", ns.frame, "BOTTOMLEFT",  ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
+
 			ns:applySettings()
 			ns.frame:SetPoint(unpack(ns.config.anchor))
 			
 			ns.frame:SetScript("OnUpdate", nil)
 
-			
-			ns.gcd:Hide()
-			
+				
 					
-					
-					
-			addEvent(function(...)
+			ns:registerModuleEvent("core", function(...)
 				if not addonInit then -- make sure that we're not waiting on the addon to load still (Stupid f'ing GetShapeshiftForm)
 					ns:applySettings()
 				end
