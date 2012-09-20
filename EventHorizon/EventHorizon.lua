@@ -411,7 +411,7 @@ local function getIconForSpellbar(spellbar)
 	-- cooldown is always a table of numbers. Default is {}
 	-- cast is always a table of numbers. Default is {}
 	
-	-- Priority: Debuff>Cooldown>Buff>Cast. One of these three has to be on the bar.. so
+	-- Priority: Debuff>Cooldown>Buff>Cast. One of these 4 has to be on the bar.. so
 	
 	-- Debuff:
 	if type(c.debuff[1]) == "table" then -- We have more than one debuff. Pick the first
@@ -1047,11 +1047,16 @@ function ns:addModule(key, options)
 	if ns.modules[key] then ns:error("addModule", "moduleExists") return end
 	
 	ns.modules[key] = options
-	EventHorizonSavedVars.modules[key] = EventHorizonSavedVars.modules[key] or {EHModule_FirstRun = true}
+	
+	local savedModule = EventHorizonSavedVars.modules[key]
+	if not savedModule or type(savedModule) ~= "table" then -- This is the first run of the module
+		savedModule = {}
+	end
+
 	
 	options.onInit()
 	
-	if EventHorizonSavedVars.modules[key].active or (options.defaultState == true and EventHorizonSavedVars.modules[key].EHModule_FirstRun) then -- if either it's been previously enabled or it's the first run of the module and it defaults on then
+	if savedModule.active or (options.defaultState == true and savedModule.active == nil) then -- if either it's been previously enabled or it's the first run of the module and it defaults on then
 		ns:enableModule(key)
 	else
 		ns:disableModule(key)
@@ -1078,8 +1083,8 @@ function ns:disableModule(key)
 	if key == "core" then return end
 	if ns.modules[key] and ns.modules[key].active then
 		ns.modules[key].onDisable()
-		ns.modules[key].active = nil
-		EventHorizonSavedVars.modules[key].active = nil
+		ns.modules[key].active = false
+		EventHorizonSavedVars.modules[key].active = false
 	end
 	
 	debug("Disabled Module " .. key)

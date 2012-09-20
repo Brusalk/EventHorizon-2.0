@@ -1,4 +1,7 @@
-EventHorizon Plugin API:
+OUT OF DATE!!!~!!!!~!~!~!~!~!~!
+
+
+EventHorizon Plugin API: 
 
 EventHorizon:addModule(moduleKey, {
 	description = "Description of what the module does",
