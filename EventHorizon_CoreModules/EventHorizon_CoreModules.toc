@@ -1,0 +1,12 @@
+## Interface: 50000
+## Title: EventHorizon_CoreModules
+## Author: Brusalk
+## Version: 2.0.0
+## Dependencies: EventHorizon
+
+
+EventHorizon_Buff.lua
+EventHorizon_Cooldown.lua
+EventHorizon_Debuff.lua
+EventHorizon_GCD.lua
+EventHorizon_Cast.lua

@@ -40,7 +40,7 @@ elseif localeFxn() == "frFr" then -- French
 		every = "les ",
 	
 	}
-
+--[[
 elseif localeFxn() == "koKR" then -- Korean (No kr.wowhead.com :(((
 	localeTable = {
 		every = nil,
@@ -67,9 +67,9 @@ elseif localeFxn() == "zhTW" then -- Chinese (traditional)
 		every = nil,
 	
 	}
-
+--]]
 else
-	print("EventHorizon: There is no localization for your current locale. If you would be so kind as to help me out I'd be very appreciative. In the mean-time DoT/HoT ticks will not work!")
+	print("EventHorizon: There is no localization for your current locale ".. localeFxn() .. ". If you would be so kind as to help me out I'd be very appreciative. In the mean-time DoT/HoT/Channel ticks will not work!")
 	
 end
 

@@ -22,38 +22,36 @@ EventHorizonSavedVarsPerCharacter = EventHorizonSavedVarsPerCharacter or {
 
 -- [[ Addon Scoped Tables ]] --
 
-ns.events = {}     -- contains all of the handler functions for events referenced by event
-ns.modules = {}	   -- contains all module information.
+ns.events = {}		-- contains all of the handler functions for events referenced by event
+ns.modules = {		-- contains all module information/defaults.
+	spellbarHooks = { -- Table used for holding handler functions for each module for hooking into parts of spellbar functionality
+		onShow = {},
+		onHide = {},
+		onSettingsUpdate = {},
+		onCreation = {},
+	},
+	spellbarConfig = {}, -- Table used for holding all non-standard spellbar config options added by modules.
+	-- I don't think this is needed, but just in case... spellbarRequired = {} -- Table used for holding all requirements
+}	   
+ns.config = {} -- Contains current config values. If using in-game options this table's updated with those values
+ns.layouts = {} -- same as above
+ns.blendModes = {}
+ns.colors = {}
+ns.spellbarConfig = {} -- all above ditto
 ns.spellbars = {  -- contains the spellbars which have been added by ns:NewSpell(), as well as references to spellbars by various attributes (Doing this frontloads the work when creating the bars on startup, as opposed to requiring it later while processing speed matters
 	index = {}, -- in order of creation via newspell
-	cooldown = {}, -- indexed by spellID in cooldown field
-	debuff = {}, -- indexed by debuff spellID
-	buff = {}, -- indexed by buff spellID
-	unitID = {}, -- indexed by unitID for the spellbar. If spellConfig.unitID = "mouseover", then the spellbar is added to the mouseover subtable.
-	stance = {}, -- indexed by stance number (required stance)
-	tree = {}, -- indexed by required tree/spec
-	cast = {}, -- indexed by cast spellIDs
-	talent = {}, -- indexed by required talent number. If a talent is required for a spellbar, then in config it's set to requiredTalent = {tier, number}. 
-	active = {}, -- contains all active spellbars. 
-	level = {}, -- contains all of the spellbars which the player is high enough level for
-	-- Using this, it's easy to determine what bars should be active. Simply merge the tables which are required, and activate spellbars which are in all the tables required.
-	-- Example: Say a spellbar has the following props:
-	--[[  	self:NewSpell({
-				debuff = 589,
-				unitID = "focus",
-				stance = 1,
-				tree   = {1,2},	
-			}
-		That created spellbar is added to index, debuff[589], stance[1] and tree[1] and tree[2] as well as talent[all indexes].
-		Now we merge the required tables which match current conditions (such as active spec or required talent).
-		The resulting table of spellbars are what should be set to active. 
-		
-		Going back to the example, stance and tree are the required fields for that spellbar.config. 
-		As such, when we merge stance[activeStance], tree[activeTree] and talent[activeTalent], we are returned with a table which matches the requirements.
-		Since our new spell is in all three required tables, its returned and set to active along with all other ones which match the criteria. 
-	]]
+	active = {}, -- contains all active spellbars.
+	required = {}, -- contains subtables which represent requirements defined by modules. Subtables are indexed by requirement and valued with the spellbar and it's requirement Function.
 }
-
+ns.validatorFunctions = { -- used for the options menu and validating user input for options
+	addColor = {},
+	addBlendMode = {},
+	addLayout = {},
+	addConfig = {},
+	addSpellbarConfig = {},
+	addSpellbarRequirement = {},
+	defaults = {}, -- default built in validation functions. 
+}
 -- [[ Utility Tables/Local Scope ]] --
 
 local errors = {} -- Table containing verbose error messages (in english)
@@ -62,16 +60,13 @@ local textures = { -- Table used for tempTexture system
 	free = {},
 	used = {},
 }
-local spellbarHooks = { -- Table used for holding handler functions for each module for hooking into parts of spellbar functionality
-		onShow = {},
-		onHide = {},
-		onSettingsUpdate = {},
-		onCreation = {},
-}
 local DB = EventHorizonSavedVars
 local DBPC = EventHorizonSavedVarsPerCharacter
 local addonInit = true -- true while addon is still being initialized. All functionality is postponed until addon is fully setup. Addon is setup when addonInit = nil
+local class -- player's class
 
+-- Localized global functions:
+local UnitClass = UnitClass
 
 -- [[ Utility Functions ]] --
 
@@ -172,6 +167,46 @@ local function tableMerge(...)
 end
 
 
+
+-- [[ Built in Validation Functions ]] --
+
+ns.validatorFunctions.defaults.addColor = function(input)
+	if type(input) ~= "table" then return end
+	if input[1] == true then -- class colored
+		if type(input[2])=="number" and type(input[3])=="number" and input[2] >= 0 and input[2] <= 1 and input[3] >= 0 and input[3] <= 1 then
+			return true -- woo
+		end
+	elseif type(input[1])=="number" then
+		for i,num in ipairs(input) do
+			if type(num)~= "number" or num > 1 or num < 0 then return false end
+		end
+	end
+	return false	
+end
+
+ns.validatorFunctions.defaults.addBlendMode = function(input)
+	if type(input) == "string" then
+		if input == "ADD" or input == "ALPHAKEY" or input == "BLEND" or input == "DISABLE" or input == "MOD" then
+			return true
+		end
+	end
+	return false		
+end
+
+ns.validatorFunctions.defaults.addLayout = function(input)
+	if type(input) ~= "table" then return end
+	if input.top and input.bottom and input.top < input.bottom and input.top >= 0 and input.top < 1 and input.bottom > 0 and input.bottom <= 1 then
+		return true
+	end
+	return false		
+end
+
+ns.validatorFunctions.defaults.addConfig = function() return true end
+ns.validatorFunctions.defaults.addSpellbarConfig = function() return true end
+ns.validatorFunctions.defaults.addSpellbarRequirement = function() return true end
+
+
+
 -- [[ Module Functions ]] --
 
 -- [[ Module Registration ]] --
@@ -189,21 +224,26 @@ function ns:addModule(key, options)
 	
 	local savedModule = EventHorizonSavedVars.modules[key]
 	if not savedModule or type(savedModule) ~= "table" then -- This is the first run of the module
-		savedModule = {}
+		savedModule = {} -- I love Lua
 	end
 
-	
-	options.onInit()
-	
 	if savedModule.active or (options.defaultState == true and savedModule.active == nil) then -- if either it's been previously enabled or it's the first run of the module and it defaults on then
 		ns:enableModule(key)
 	else
 		ns:disableModule(key)
 	end
 	
+	options.onInit() -- initialized.
+	
+	for i,spellbar in ipairs(ns.spellbars.index) do -- Fake the spellbar creation for all bars created up to this point. Any created after this are called automatically by newSpell
+		if ns.modules.spellbarHooks.onCreation[key] then
+			ns.modules.spellbarHooks.onCreation[key](spellbar)
+		end
+	end
 	
 	debug("Added Module " .. key)
 	
+	return ns.modules[key]
 end
 
 
@@ -312,54 +352,81 @@ function ns:addColor(moduleKey, optionsKey, color, validator)
 	ns.defaultColors[optionsKey] = color
 	ns.colors = mergeDef(ns.defaultColors, ns.cColors, ns.pColors)
 	
+	ns.validatorFunctions.addColor[optionsKey] = validator or ns.validatorFunctions.defaults.addColor -- add their custom validator function or our default one for color
+	
 	debug("Added ", color, " to color table")
 end
 
-function ns:addBlendMode(moduleKey, optionsKey, defaultBlendMode, validator)
+function ns:addBlendMode(moduleKey, optionsKey, default, validator)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a blend mode. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a blend mode while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
-	if not optionsKey or type(defaultBlendMode) ~= "string" then error("Error in inputs for EventHorizon:addBlendMode. Check the API for valid values/input types") return end
+	if not optionsKey or type(default) ~= "string" then error("Error in inputs for EventHorizon:addBlendMode. Check the API for valid values/input types") return end
 	if ns.blendModes[optionsKey] then error("Input for optionsKey for EventHorizon:addBlendMode() already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
 		
-	ns.defaultBlendModes[optionsKey] = defaultBlendMode
+	ns.defaultBlendModes[optionsKey] = default
 	ns.blendModes = mergeDef(ns.defaultBlendModes, ns.cBlendModes, ns.pBlendModes)
 	
-	debug("Added ", defaultBlendMode, " to blendModes table")
+	ns.validatorFunctions.addBlendMode[optionsKey] = validator or ns.validatorFunctions.defaults.addBlendMode
+	
+	debug("Added ", default, " to blendModes table")
 end
 
-function ns:addLayout(moduleKey, optionsKey, layoutTable, validator)
+function ns:addLayout(moduleKey, optionsKey, default, validator)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a layout. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a layout while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
-	if not optionsKey or type(layoutTable) ~= "table" or not (layoutTable.top and layoutTable.bottom) or type(layoutTable.top) ~= "number" or type(layoutTable.bottom) ~= "number" then error("Error in inputs for EventHorizon:addLayout. Check the API for valid values/input types") return end
+	if not optionsKey or type(default) ~= "table" or not (default.top and default.bottom) or type(default.top) ~= "number" or type(default.bottom) ~= "number" then error("Error in inputs for EventHorizon:addLayout. Check the API for valid values/input types") return end
 	if ns.layouts[optionsKey] then error("Input for optionsKey for EventHorizon:addLayout already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
 		
-	ns.defaultLayouts[optionsKey] = layoutTable
+	ns.defaultLayouts[optionsKey] = default
 	ns.layouts = mergeDef(ns.defaultLayouts, ns.cLayouts, ns.pLayouts)
 	
-	debug("Added table: ", unpack(layoutTable), " to layout table")
+	ns.validatorFunctions.addLayout[optionsKey] = validator or ns.validatorFunctions.defaults.addLayout
+	
+	debug("Added table: ", unpack(default), " to layout table")
 end
 
-function ns:addConfig(moduleKey, optionsKey, optionTable, validator)
+function ns:addConfig(moduleKey, optionsKey, default, validator)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a config option. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
-	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a layout while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
-	if not optionsKey or type(optionTable) ~= "table" then error("Error in inputs for EventHorizon:addConfig. Check the API for valid values/input types") return end
-	if ns.config[optionsKey] then error("Input for optionsKey for EventHorizon:addBlendMode() already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a config option while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
+	if not optionsKey or not default then error("Error in inputs for EventHorizon:addConfig. Check the API for valid values/input types") return end
+	if ns.config[optionsKey] then error("Input for optionsKey for EventHorizon:addConfig() already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
 	
-	ns.defaultConfig[optionsKey] = optionTable
+	ns.defaultConfig[optionsKey] = default
 	ns.config = mergeDef(ns.defaultConfig, ns.cConfig, ns.pConfig)
 	
-	debug("Added table: ", unpack(optionTable), " to options table")
+	ns.validatorFunctions.addConfig[optionsKey] = validator or ns.validatorFunctions.defaults.addConfig
+	
+	debug("Added ", default, " to config table")
 end
 
-function ns:addSpellbarConfig(moduleKey, optionsKey, default, validateFunction)
+function ns:addSpellbarConfig(moduleKey, optionsKey, default, validator)
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a spellbar config option. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a spellbar config option while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
+	if not optionsKey or not default then error("Error in inputs for EventHorizon:addSpellbarConfig. Check the API for valid values/input types") return end
+	if ns.spellbarConfig[optionsKey] then error("Input for optionsKey for EventHorizon:addSpellbarConfig() already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
 	
+	ns.spellbarConfig[optionsKey] = default
+	
+	ns.validatorFunctions.addSpellbarConfig[optionsKey] = validator or ns.validatorFunctions.defaults.addSpellbarConfig
+	
+	debug("Added ", default, " to spellbarConfig table")
+end
+
+function ns:addSpellbarRequirement(moduleKey, optionsKey, requirementFunction) -- requirementFunction is passed a spellbar. Should return true if the spellbar should be set to active for this requirement
+	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a spellbar requirement option. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
+	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a spellbar requirement option while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
+	if not optionsKey or not default then error("Error in inputs for EventHorizon:addSpellbarRequirement. Check the API for valid values/input types") return end
+	if ns.spellbars.required[optionsKey] then error("Input for optionsKey for EventHorizon:addSpellbarRequirement() already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
+
+	ns.spellbars.required[optionsKey] = {}		 -- This table stores all of the spellbars that meet the most recent checkRequirements as returned by requirementFunction.
+												 -- That way if you want to check all of the spellbars that meet a requirement, like say requiredStance = {1,2}, 
+												 -- then you just have to read the spellbars in ns.spellbars.required[optionsKey][1] and [2] to see.
+	
+	ns.validatorFunctions.addSpellbarRequirement[moduleKey] = ns.validatorFunctions.addSpellbarRequirement[moduleKey] or {} -- This is so we can enforce the active module constraint for requirement checking
+	ns.validatorFunctions.addSpellbarRequirement[moduleKey][optionsKey] = requirementFunction or ns.validatorFunctions.defaults.addSpellbarRequirement
 	
 end
 
-function ns:getSpellbarConfig(optionsKey)
-	
-	
-end
 
 
 -- [[ Get ]] --
@@ -395,39 +462,43 @@ function ns:getConfig(key)
 	return ns.config[key]
 end
 
+function ns:getSpellbarConfig(optionsKey)
+	return ns.spellbarConfig[optionsKey]
+end
 
--- [[ Modules API - Spellbar Settings ]] --
+
+-- [[ Modules API - Spellbar Hooks ]] --
 
 
 function ns:hookSpellbarCreation(moduleKey, handler)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to hook into spellbarCreation. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 
-	if not spellbarHooks.onCreation[moduleKey] then
-		spellbarHooks.onCreation[moduleKey] = handler
+	if not ns.modules.spellbarHooks.onCreation[moduleKey] then
+		ns.modules.spellbarHooks.onCreation[moduleKey] = handler
 	end
 end
 
 function ns:hookSpellbarShow(moduleKey, handler, override)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to hook into spellbarShow. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 
-	if not spellbarHooks.onShow[moduleKey] or (spellbarHooks.onShow[moduleKey] and override) then
-		spellbarHooks.onShow[moduleKey] = handler
+	if not ns.modules.spellbarHooks.onShow[moduleKey] or (ns.modules.spellbarHooks.onShow[moduleKey] and override) then
+		ns.modules.spellbarHooks.onShow[moduleKey] = handler
 	end		
 end
 
 function ns:hookSpellbarHide(moduleKey, handler, override)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to hook into spellbarHide. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	
-	if not spellbarHooks.onHide[moduleKey] or (spellbarHooks.onHide[moduleKey] and override) then
-		spellbarHooks.onHide[moduleKey] = handler
+	if not ns.modules.spellbarHooks.onHide[moduleKey] or (ns.modules.spellbarHooks.onHide[moduleKey] and override) then
+		ns.modules.spellbarHooks.onHide[moduleKey] = handler
 	end		
 end
 
 function ns:hookSpellbarSettingsUpdate(moduleKey, handler, override)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to hook into spellbarSettingsUpdate. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	
-	if not spellbarHooks.onSettingsUpdate[moduleKey] or (spellbarHooks.onSettingsUpdate[moduleKey] and override) then
-		spellbarHooks.onSettingsUpdate[moduleKey] = handler
+	if not ns.modules.spellbarHooks.onSettingsUpdate[moduleKey] or (ns.modules.spellbarHooks.onSettingsUpdate[moduleKey] and override) then
+		ns.modules.spellbarHooks.onSettingsUpdate[moduleKey] = handler
 	end			
 end
 
@@ -523,14 +594,6 @@ function ns:addSpellUpdate(spellbar, key, fxn)
 				fxn(self, elapsed)
 			end				
 		end)
-		spellbar:SetScript("OnHide", function()
-			spellbar.lastUpdateTime = GetTime()
-		end)
-		spellbar:SetScript("OnShow", function()
-			for k,fxn in pairs(spellbar.update) do -- When the spellbar's hidden we have some fun stuff to deal with since the frame's no longer updated. This fudges it :P
-				fxn(self, GetTime() - spellbar.lastUpdateTime)
-			end
-		end)
 	end
 	spellbar.update[key] = fxn
 	spellbar.updateCount = (spellbar.updateCount or 0) + 1
@@ -602,24 +665,35 @@ function ns:newSpell(spellConfig)
 	
 	spellbar.spellConfig = spellConfig -- spellbar specific settings
 	
+
 	spellbar:SetScript("OnHide", function()
-		for moduleKey, fxn in pairs(spellbarHooks.onHide) do
+		for moduleKey, fxn in pairs(ns.modules.spellbarHooks.onHide) do
 			if ns.modules[moduleKey].active then
 				fxn(spellbar)
 			end
 		end
+		spellbar.lastUpdateTime = GetTime()
 	end)
 	
 	spellbar:SetScript("OnShow", function()
-		for moduleKey, fxn in pairs(spellbarHooks.onShow) do
+		for moduleKey, fxn in pairs(ns.modules.spellbarHooks.onShow) do
 			if ns.modules[moduleKey].active then
 				fxn(spellbar)
 			end
+		end
+		for k,fxn in pairs(spellbar.update) do -- When the spellbar's hidden we have some fun stuff to deal with since the frame's no longer updated. This fudges it :P
+			fxn(self, GetTime() - spellbar.lastUpdateTime)
 		end
 	end)
 	
 	spellbar.index = #ns.spellbars.index
 	table.insert(ns.spellbars.index, spellbar)
+	
+	for moduleKey, moduleHandler in pairs(ns.modules.spellbarHooks.onCreation) do -- if the player adds a new bar in the config menu, or somehow a module loaded before first creation..
+		if ns.modules[moduleKey].active then
+			moduleHandler(spellbar)
+		end
+	end
 end
 
 ns:addError("updateSpellbarSettings", {inputs = "Input spellbar was either not defined or not initialized yet."})
@@ -657,6 +731,12 @@ function ns:updateSpellbarSettings(spellbar)
 	spellbar.bar.texture:SetTexture(ns.config.barTexture)
 	spellbar.bar.texture:SetVertexColor(unpack(ns:getColor("barBackground")))
 	spellbar.bar.texture:SetBlendMode(ns.blendModes.barBackground)
+	
+	for moduleKey, moduleHandler in pairs(ns.modules.spellbarHooks.onSettingsUpdate) do 
+		if ns.modules[moduleKey].active then
+			moduleHandler(spellbar)
+		end
+	end
 end
 
 -- [[ Spellbar Icon Function ]] --
@@ -725,46 +805,297 @@ end
 --  Sets all frames which meet current active requirements active. 
 function ns:checkRequirements()
 	table.wipe(ns.spellbars.active)
-	
-	local toActivate = tableMerge(ns.spellbars.tree[GetSpecialization()] or {}, ns.spellbars.level[UnitLevel("player")] or {}, ns.spellbars.stance[GetShapeshiftForm()])
-	local talents = {}
-	for i=1, 18 do -- have to get a list of all spellbars which match currently learned talents, and then merge that with toActivate
-		if select(5,GetTalentInfo(i)) and select(6,GetTalentInfo(i)) then -- talent is learned
-			for k,spellbar in pairs(ns.spellbars.talent[i]) do
-				local temp, found = spellbar, false
-				for _,spellbar2 in ipairs(talents) do
-					if spellbar == spellbar2 then
-						found = true
+	--ns.validatorFunctions.addSpellbarRequirement[optionsKey]
+	for i,spellbar in ipairs(ns.spellbars.index) do
+		local active = true
+		for moduleKey, requirements in pairs(ns.validatorFunctions.addSpellbarRequirement) do
+			if ns.modules[moduleKey].active then-- make sure the module that added the requirements actually active
+				for optionsKey, requirementFunction in pairs(requirements) do
+					if not requirementFunction(spellbar) then -- One of the requirements setup for this bar were not met, so don't show this spellbar
+						active = nil
+					else
+						table.insert(ns.spellbars.required[optionsKey], spellbar) -- add it to the list of spellbars which matched this requirement, in case someone wants it for some reason
 					end
-				end
-				if not found then 
-					table.insert(talents, spellbar)
 				end
 			end
 		end
+		if active then -- none of the spellbars were reported as should be hidden, so add it to our active list
+			table.insert(ns.spellbars.active, spellbar)
+		end
 	end
-	toActivate = tableMerge(toActivate, talents)
-	-- toActivate now holds all the spellbars which match all of the active requirements. Easy :D
-	
-	-- Order the spellbars by their index to make it easy later to set them up in the correct order
-
-	
-	for i,spellbar in pairs(toActivate) do
-		table.insert(ns.spellbars.active, spellbar) -- Can now assume that ns.spellbars.active has been sorted by creationIndex
-	end
-	table.sort(ns.spellbars.active, function(a,b) return a.index < b.index end)
-end
-
--- Requirements for checkRequirements:
-function ns:addRequirement(moduleKey, name, handler) -- name is the name of the requiredXXXXX to show up in the config for spellbars. Handler is a function which when passed a spellbar returns true if it should be active, and false if it shouldn't
--- Add 
-
-
+	table.sort(ns.spellbars.active, function(a,b) return a.index < b.index end) -- sort them by index so they retain some resemblance of order.
 end
 
 
+function ns:updateSettings() 
+	updating = true
+	local f = ns.frame
+	
+	f:SetWidth(ns.config.width)
+	f:SetHeight( ((#ns.spellbars.active>0 and #ns.spellbars.active or 1) > ns.config.minBars and ns.config.height or (#ns.spellbars.active>0 and #ns.spellbars.active or 1)*(ns.config.height/ (#ns.spellbars.active>0 and #ns.spellbars.active or 1))) - ns.config.barSpacing)
+	if ns.config.backdrop then -- make backdrop settings
+		f.texture = f.texture or CreateFrame("Frame") -- make sure we have a backdrop texture
+		f.texture:SetBackdrop({
+			bgFile = ns.config.texture,
+			edgeFile = ns.config.border,
+			tile = true,
+			tileSize = 32,
+			edgeSize = ns.config.edgeSize,
+			insets = ns.config.inset,			
+		})
+		f.texture:ClearAllPoints() -- set padding
+		f.texture:SetPoint("TOPLEFT", f, "TOPLEFT")
+		f.texture:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT")
+		f.texture:SetBackdropColor(unpack(ns:getColor("bg")))
+		f.texture:SetBackdropBorderColor(unpack(ns:getColor("border")))
+		--f.texture:SetAlpha(ns.colors.bg[4])
+		f.texture:SetFrameStrata("LOW")
+		
+	end -- end backdrop settings
+	
+	--start spellbar settings
+	local prevSpellbar
+	barSpacing = ns.config.barSpacing
+	for i,spellbar in ipairs(ns.spellbars.active) do -- now we set up the active bars. These are in order of creationIndex
+		spellbar.updateSettings(spellbar)
+		spellbar:Show()
+		if i==1 then		
+			spellbar:ClearAllPoints()
+			spellbar:SetPoint("TOPLEFT", f, "TOPLEFT", ns.config.padding, -ns.config.padding)
+			spellbar:SetPoint("TOPRIGHT", f, "TOPRIGHT", -ns.config.padding, -ns.config.padding)
+			
+		else
+			spellbar:ClearAllPoints()
+			spellbar:SetPoint("TOPLEFT", prevSpellbar, "BOTTOMLEFT", 0, -barSpacing)
+			spellbar:SetPoint("TOPRIGHT", prevSpellbar, "BOTTOMRIGHT", 0, -barSpacing)
+		end
+		
+		spellbar.updateIcon(spellbar, getIconForSpellbar(spellbar), 0) 
+		-- Default icon is the first cast, then the first debuff, then the first cooldown, then the first playerbuff. If it's not one of these then what the fuck is this spellbar for :3
+		
+		spellbar.bar:SetPoint("TOPLEFT", spellbar, "TOPLEFT", self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0, 0) -- inheirits width settings natually from width of spellbar and icon
+		
+		spellbar.cast:SetHeight(spellbar:GetHeight() * (ns:getLayout("cast")[2]-ns:getLayout("cast")[1]))
+		
+		-- spellbar.cooldown:SetHeight(spellbar:GetHeight() * (ns:getLayout("cooldown")[2]-ns:getLayout("cooldown")[1]))
+		
+		-- spellbar.debuff:SetHeight(spellbar:GetHeight() * (ns:getLayout("debuff")[2]-ns:getLayout("debuff")[1]))
+		
+		-- spellbar.buff:SetHeight(spellbar:GetHeight() * (ns:getLayout("buff")[2]-ns:getLayout("buff")[1]))
+		
+		
+
+		spellbar.cast:SetPoint("TOPLEFT", ns.frame.barAnchor, "TOPLEFT", ns:getPositionByTime(0),0)
+		spellbar.cast:SetPoint("BOTTOMLEFT", ns.frame.barAnchor, "BOTTOMLEFT", ns:getPositionByTime(0),0)
+		
+		prevSpellbar = spellbar
+		
+		-- Module Hooks:
+	
+		for moduleKey, fxn in pairs(spellbarHooks.onSpellbarSettingsUpdate) do
+			if ns.modules[moduleKey].active then
+				fxn(spellbar)
+			end
+		end
+
+	end
+	
+	-- end spellbar settings
+	
+
+	--store the width of the spellbar.bar
+	ns.frame.barAnchor:SetPoint("TOPLEFT", ns.frame, "TOPLEFT", ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
+	ns.frame.barAnchor:SetPoint("BOTTOMLEFT", ns.frame, "BOTTOMLEFT",  ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
+	
+	updating = nil
+end
+
+function ns:applySettings()
+	ns:checkRequirements()
+	
+	for i,spellbar in ipairs(ns.spellbars.index) do
+		spellbar:Hide()
+	end
+	for i,spellbar in ipairs(ns.spellbars.active) do
+		spellbar:Show()
+	end
+	
+	if #ns.spellbars.active > 0 then -- make sure we actually have bars to show.
+		ns.frame:Show()
+		ns.shown = true
+		ns:updateSettings()
+	else
+		ns.shown = nil -- no need to update settings if they can't even see it
+		ns.frame:Hide()
+	end
+end
 
 
+
+
+--------------------------------------
+-- [[    Addon Initialization    ]] --
+--------------------------------------
+
+ns:registerModuleEvent("core", function(...)
+	class = select(2,UnitClass('player'))
+	
+	LoadAddOn("EventHorizon_".. class:sub(1,1)..class:sub(2):lower())
+	EventHorizon:InitializeClass()
+	
+	ns:registerModuleEvent("core", function(...)
+		if not addonInit then -- make sure that we're not waiting on the addon to load still (Stupid f'ing GetShapeshiftForm)
+			ns:applySettings()
+		end
+	end,
+	"UPDATE_SHAPESHIFT_FORM",
+	"UPDATE_SHAPESHIFT_FORMS",
+	"PLAYER_SPECIALIZATION_UPDATE",
+	"PLAYER_SPECIALIZATION_CHANGED",
+	"PLAYER_LEVEL_UP",
+	"GLYPH_ADDED",
+	"GLYPH_ENABLED",
+	"GLYPH_REMOVED",
+	"GLYPH_UPDATED",
+	"GLYPH_DISABLED"
+	)
+
+	ns:applySettings() -- Since modules load after EventHorizon loads they just do all their stuff after we go on with our business.
+	
+	addonInit = nil
+end,
+"PLAYER_ENTERING_WORLD")
+
+
+-- [[ Default Configuration Tables ]] --
+
+
+ns.defaultConfig = {
+	-- Position
+	anchor = {"CENTER", UIParent, "CENTER"},
+
+	--Bar Options
+	height = 300,        		-- Height of the total frame. EH will now automatically resize the height of spellBars depending on how many are active
+	width = 500,        		-- Width of the total frame. (This includes the actual spellBar, as well as the icon) 
+	barSpacing = 0,      		-- Amount of space vertically between spellBars
+	minBars = 3,         		-- If there are less than or equal to minBars shown, Eh will resize the bars as if there were minBars actually shown. In other words, the total frame will become shorter, rather than the bars becoming larger. You can also think of it like setting an upper-limit on how tall a spellBar can be. (that being height/minBars)
+	texture = "Interface\\Addons\\EventHorizon\\Smooth",
+								-- If a path to a texture, EH will use that. If a table of {r, g, b, a}, EH will use that.
+	barTexture = "Interface\\Addons\\EventHorizon\\Smooth", -- Path to a texture to use for the background of individual spellbars.
+
+	textureAlphaMultiplier = 2,	-- Textures generally appear darker than a solid color. The alpha value is multiplied by this to counteract this effect
+	
+	--Icon Options
+	icons = true, 				-- If set to false or nil, EH will not show icons and only show the spellBar.
+	iconWidth = 0.1,            -- Width of the icon. If <1 EH assumes this is a percent of the width. If >1 EH will set it as a pixel value.
+	
+	--Stack Indicator Options
+	stackFont = false,			-- If this is set to a font path, EH will use that font for the stack indicator
+	stackSize = false,    		-- Sets the font size of the indicator if set to a number
+	stackOutline = false, 		-- Sets the outline of the font. Valid: "OUTLINE", "THICKOUTLINE", "MONOCHROME"
+	stackColor = false,			-- Sets the color of the font. {R, G, B, A}
+	stackShadow = false, 		-- Sets whether there should be a shadow effect on the text
+	stackShadowOffset = false,	-- Sets the offset from the text the shadow should be {x,y}
+	stackPosition = {"BOTTOMRIGHT", -2, 2},		-- Sets the position and offset of the stack Indicator relative to the icon. { RelativePoint, xOffSet, yOffSet } Default: {"BOTTOMRIGHT", -2, 2}
+	
+	--Backdrop Options
+	backdrop = true,            -- Whether to setup a backdrop (true) or not (false)
+	texture = "Interface\\ChatFrame\\ChatFrameBackground",
+								-- Path to the texture to use as the backdrop
+	border = "Interface\\Tooltips\\UI-Tooltip-Border",
+								-- Path to the texture to use as a border
+	padding = 2, 				-- Extra space (in pixels) between the barFrames/Icons and the backdrop
+	edgeSize = 8, 				-- Thickness of the frame's border. You'll have to mess around with this if you change the border texture to make it look right
+	inset = {top = 2, bottom = 2, left = 2, right = 2},
+								-- Changes the distance between the border texture and the backdrop texture. Moves the backdrop in x pixels.
+	
+	--Time Settings
+	past = -3,    				-- Time in the past in seconds to show to the left of the now line (As a negative number)
+	future = 12, 				-- Time in the future to show to the right of the now line
+	futureLog = false,			-- For the future. I may implement a log scale for the future if enabled. NYI
+	
+}
+ns.defaultColors = {
+	debuffTick = {true,Priest and 0.7 or 1,1},			-- Tick markers. Default = {true,Priest and 0.7 or 1,1} (class colored, dimmed a bit if you're a Priest, opaque)
+	buffTick = {true,Priest and 0.7 or 1,1},			-- Tick markers. Default = {true,Priest and 0.7 or 1,1} (class colored, dimmed a bit if you're a Priest, opaque)
+	channelTick = {0,1,0.2,0.25},					-- Tick markers for channeled spells. Default is the same as casting.
+	cast = {0,1,0.2,0.25},							-- Casting bars. Default = {0,1,0,0.25} (green, 0.25 unmodified alpha)
+	castLine = {0,1,0,0.3},						-- The end-of-cast line, shown for casts and channels over 1.5 seconds. Default = {0,1,0,0.3} (green, 0.3 unmodified alpha)
+	cooldown = {0.6,0.8,1,0.3},						-- Cooldown bars. Default = {0.6,0.8,1,0.3} (mute teal, 0.3 unmodified alpha)
+	debuff = {true,Priest and 0.7 or 1,0.3},	-- YOUR debuff bars. Default = {true,Priest and 0.7 or 1,0.3} (class colored, dimmed a bit if you're a Priest, 0.3 unmodified alpha)
+	buff = {true,Priest and 0.7 or 1,0.3},	-- Buff bars. Default = {true,Priest and 0.7 or 1,0.3} (class colored, dimmed a bit if you're a Priest, 0.3 unmodified alpha)
+	nowLine = {1,1,1,0.3},							-- The "Now" line.
+	bg = {0,0,0,0.6}, 				-- Color of the frame's background. Default = {0,0,0,0.6} (black, 60% opacity)
+	barBackground = {1,1,1,0.2},           -- Color of the background of individual bars
+	border = {1,1,1,1},						-- Color of the frame's border. Default = {1,1,1,1} (white, fully opaque)
+}
+ns.defaultBlendModes = {
+	debuffTick = "ADD",		
+	buffTick = "ADD",
+	channeltick = "ADD",					
+	cast = "BLEND",				-- If cast is set to show a line, it inheirits this.								
+	cooldown = "ADD",						
+	debuff = "ADD",	
+	buff = "ADD",	
+	nowline = "ADD",
+	bg = "BLEND", 				
+	barBackground = "BLEND",          
+	border = "BLEND",		
+}
+ns.defaultLayouts = {
+	debuffTick = {				-- debuff Tick markers.
+		top = 0,
+		bottom = 0.12,
+	},
+	buffTick = {				-- buff tick markers. Lets you have debuffs and buffs on the same bar
+		top = 0.88,
+		bottom = 1,
+	},
+	channelTick = {
+		top = 0,
+		bottom = 0.12,
+	},
+	cast = {					-- If cast is set to show a line, it inheirits this.		
+		top = 0,
+		bottom = 1,
+	},								
+	cooldown = {
+		top = 0,
+		bottom = 1,
+	},							
+	debuff = {
+		top = 0,
+		bottom = 1,
+	},	
+	buff = {
+		top = 0,
+		bottom = 1,
+	},		
+	nowline = {
+		top = 0,
+		bottom = 1,
+	},	
+	barBackground = {
+		top = 0,
+		bottom = 1,
+	},	         
+	recastZone = {				-- The recast line for spells like Vampiric Touch and Immolate.
+		top = 0,
+		bottom = 0.25,
+	},
+	cantCast = {				-- The blank section below the recast line.
+		top = 0.25,
+		bottom = 1,
+	},
+	default = {					-- Just about everything else.
+		top = 0,
+		bottom = 1,
+	},
+}
+ns.config = mergeDef(ns.defaultConfig, ns.cConfig, ns.pConfig) -- default: default. c = config.lua config table. p = myConfig.lua config table
+ns.colors = mergeDef(ns.defaultColors, ns.cColors, ns.pColors)
+ns.blendModes = mergeDef(ns.defaultBlendModes, ns.cBlendModes, ns.pBlendModes)
+ns.layouts = mergeDef(ns.defaultLayouts, ns.cLayouts, ns.pLayouts)
 
 
 
