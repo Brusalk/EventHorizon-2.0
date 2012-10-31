@@ -1,0 +1,15 @@
+<NotepadPlus>
+    <Session activeView="1">
+        <mainView activeIndex="0" />
+        <subView activeIndex="6">
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="180" startPos="0" endPos="0" selMode="0" lang="Lua" encoding="-1" filename="E:\World of Warcraft Beta\Interface\AddOns\EventHorizonDev\EventHorizon\myconfig.lua" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="3520" startPos="483" endPos="483" selMode="0" lang="Lua" encoding="-1" filename="E:\World of Warcraft Beta\Interface\AddOns\EventHorizonDev\EventHorizon\config.lua" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="1" startPos="0" endPos="0" selMode="0" lang="Lua" encoding="-1" filename="E:\World of Warcraft Beta\Interface\AddOns\EventHorizon\modules\EventHorizon_Buff.lua" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="1" startPos="0" endPos="0" selMode="0" lang="Lua" encoding="-1" filename="E:\World of Warcraft Beta\Interface\AddOns\EventHorizon\modules\EventHorizon_Debuff.lua" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="2030" startPos="31" endPos="31" selMode="0" lang="Normal Text" encoding="-1" filename="E:\World of Warcraft Beta\Interface\AddOns\EventHorizon\EventHorizon Module API.txt" />
+            <File firstVisibleLine="67" xOffset="0" scrollWidth="1510" startPos="2899" endPos="2899" selMode="0" lang="Lua" encoding="-1" filename="E:\World of Warcraft Beta\Interface\AddOns\EventHorizon\modules\EventHorizon_GCD.lua" />
+            <File firstVisibleLine="79" xOffset="0" scrollWidth="2110" startPos="6078" endPos="6078" selMode="0" lang="Lua" encoding="-1" filename="E:\World of Warcraft Beta\Interface\AddOns\EventHorizon\modules\EventHorizon_Cooldown.lua" />
+            <File firstVisibleLine="0" xOffset="0" scrollWidth="1" startPos="0" endPos="0" selMode="0" lang="Lua" encoding="-1" filename="E:\World of Warcraft Beta\Interface\AddOns\EventHorizon\modules\EventHorizon_Cast.lua" />
+        </subView>
+    </Session>
+</NotepadPlus>
