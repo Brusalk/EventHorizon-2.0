@@ -1,5 +1,5 @@
-## Interface: 40000
-## Title: EventHorizon_|c4500ff96Monk|r
+## Interface: 50001
+## Title: EventHorizon_|c60ffffffMonk|r
 ## Author: Brusalk (Config by Thymon)
 ## Dependencies: EventHorizon
 ## LoadOnDemand: 1

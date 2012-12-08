@@ -1,8 +1,124 @@
 function EventHorizon:InitializeClass()
-	self.config.gcdSpellID = 772
+	self.config.gcdSpellID = 5308
+	--updated for mop
+
+	-- Protection --
 	
+	--Shield Block/Shield Slam
+	self:newSpell({
+		cooldown = 23922,
+		playerbuff = 2565,
+		requiredTree = 3,
+	})
+	
+	--Thunderclap
+	self:newSpell({
+		cooldown = 6343,
+		debuff = 115798,
+		requiredTree = 3,
+	})
+	
+	--Shield Barrier/revenge
+	self:newSpell({
+		cooldown = 6572,
+		playerbuff = 112048,
+		requiredTree = 3,
+	})
+	
+	
+	--[[ Arms -- 
+	
+	125831 - taste for blood stacks
+	52437 - sudden death
+	]]
+	
+	-- Mortal Strike/colossus smash proc buff/sweeping strikes buff
+	self:newSpell({
+		cooldown = 12294,
+		playerbuff = {{52437,0},{12328,0}},
+		requiredTree = 1,
+	})
+	
+	--Sudden Death/Colossus Smash
+	self:newSpell({
+		cooldown = 86346,
+		debuff = 86346,
+		requiredTree = 1,		
+	})
+	
+	self:newSpell({
+		playerbuff = 125831,
+		cooldown = 78,
+		requiredTree = 1,
+	})
+	
+	--enrage/beserker rage
+	self:newSpell({
+		cooldown = 18499,
+		playerbuff = 12880,
+		requiredTree = 1,
+	})
+	
+	
+	--[[ Fury --
+	131116 -- allows raging blow
+	46916 -- bloodsurge
+	12880 -- enrage
+	]]
+	
+	-- Raging blow/bloodthirst
+	self:newSpell({
+		playerbuff = 131116,
+		cooldown = 23881,
+		requiredTree = 2,
+	})
+	
+	
+	-- Colossus Smash/raging blow
+	self:newSpell({
+		cooldown = 86346,
+		debuff = 86346,
+		requiredTree = 2,
+	})
+	
+	--Beserker Rage/enrage
+	self:newSpell({
+		cooldown = 18499,
+		playerbuff = 12880,
+		requiredTree = 2,
+	})
+	
+
+	
+	
+	-- Deadly Calm
+	
+	self:newSpell({
+		cooldown = 85730,
+		playerbuff = 85730,
+		requiredTree = {1,2},
+	})
+	
+	--[[90 talents
+		self:newSpell({
+			cooldown = {107574, 12292, 107570},
+			buff = 107574,
+			requiredTalent = {16, 17, 18},
+		})		
+	]]
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	--[[ old
 	-- Colossus Smash
-	self:NewSpell({
+	self:newSpell({
 		spellID = 86346,
 		cooldown = true,
 		debuff = true,
@@ -11,7 +127,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Rend
-	self:NewSpell({
+	self:newSpell({
 		spellID = 772,
 		debuff = true,
 		dot = 3,
@@ -21,14 +137,14 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Strike (Untalented)
-	self:NewSpell({
+	self:newSpell({
 		spellID = 88161,
 		cooldown = true,
 		requiredTree = 0,
 	})
 	
 	-- Mortal Strike + Lambs to the Slaughter + Slam cast
-	self:NewSpell({
+	self:newSpell({
 		spellID = 12294,
 		cooldown = true,
 		playerbuff = 84584,
@@ -38,7 +154,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Raging Blow + Enrage effects
-	self:NewSpell({
+	self:newSpell({
 		spellID = 85288,
 		playerbuff = {12880,18499,1134,12292}, -- Should pick whatever's first on the list, bar may jump
 		cooldown = true,
@@ -48,7 +164,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Bloodthirst + Bloodsurge
-	self:NewSpell({
+	self:newSpell({
 		spellID = 23881,
 		playerbuff = 46916,
 		keepIcon = true,
@@ -57,7 +173,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Shield Slam + Sword and Board
-	self:NewSpell({
+	self:newSpell({
 		spellID = 23922,
 		playerbuff = 50227,
 		cooldown = true,
@@ -65,7 +181,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Revenge + Impending Victory
-	self:NewSpell({
+	self:newSpell({
 		spellID = 6572,
 		playerbuff = 82368,
 		cooldown = true,
@@ -74,7 +190,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Shield Block
-	self:NewSpell({
+	self:newSpell({
 		spellID = 2565,
 		playerbuff = true,
 		cooldown = true,
@@ -83,7 +199,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Shockwave + Thunderstruck
-	self:NewSpell({
+	self:newSpell({
 		spellID = 46968,
 		playerbuff = 87095,
 		cooldown = true,
@@ -92,7 +208,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Thunder Clap (not bothering with similar effects for now)
-	self:NewSpell({
+	self:newSpell({
 		spellID = 6343,
 		cooldown = true,
 		debuff = true,
@@ -103,7 +219,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Demoralizing Shout
-	self:NewSpell({
+	self:newSpell({
 		spellID = 1160,
 		debuff = true,
 		unique = true,
@@ -112,7 +228,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Whirlwind + Meat Cleaver
-	self:NewSpell({
+	self:newSpell({
 		spellID = 1680,
 		cooldown = true,
 		playerbuff = 85738,
@@ -122,7 +238,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Taste for Blood
-	self:NewSpell({
+	self:newSpell({
 		spellID = 60503,
 		playerbuff = true,
 		internalcooldown = 6,
@@ -131,7 +247,7 @@ function EventHorizon:InitializeClass()
 	})
 		
 	-- HS/Cleave + Incite
-	self:NewSpell({
+	self:newSpell({
 		spellID = 78,
 		cooldown = true,
 		playerbuff = 86627,
@@ -140,7 +256,7 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Shouts
-	self:NewSpell({
+	self:newSpell({
 		spellID = 6673,
 		cooldown = true,
 		playerbuff = {6673,469},
@@ -149,12 +265,12 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Deadly Calm
-	self:NewSpell({
+	self:newSpell({
 		spellID = 85730,
 		cooldown = true,
 		playerbuff = true,
 		requiredTree = 1,
 		requiredLevel = 39,
 	})
-	
+	]]
 end

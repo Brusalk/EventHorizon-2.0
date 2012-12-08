@@ -18,19 +18,17 @@ function EventHorizon:InitializeClass()
 
 	--Renewing Mist
 	self:newSpell({
-		spellID = 115151,
 		refreshable = true,
 		playerbuff = 115151,
 		auraunit = usemouseover and 'mouseover' or 'target',
 		hasted = true,
-		cooldown = true,
+		cooldown = 115151,
 		requiredTree = 2,
 		requiredLevel = 10,
 	})
 	
 	--Enveloping Mist
 	self:newSpell({
-		spellID = 124682,
 		cast = {124682,116694},
 		refreshable = true,
 		playerbuff = 124682,
@@ -42,7 +40,6 @@ function EventHorizon:InitializeClass()
 
 	--Mana Tea
 	self:newSpell({
-		spellID = 115867,
 		playerbuff = 115867,
 		cooldown = 123761,
 		cast = 115867,
@@ -53,7 +50,6 @@ function EventHorizon:InitializeClass()
 	
 	--Second tier talents (mouseover target)
 	self:newSpell({
-		spellID = 124081,
 		playerbuff = 124081,
 		cooldown = {115098,124081},
 		auraunit = usemouseover and 'mouseover' or 'target',
@@ -66,7 +62,6 @@ function EventHorizon:InitializeClass()
 	
 	--Tiger Power
 	self:newSpell({
-		spellID = 125359,
 		playerbuff = 125359,
 		requiredTree = 3,
 		requiredLevel = 10,
@@ -74,7 +69,6 @@ function EventHorizon:InitializeClass()
 	
 	--Rising Sun Kick
 	self:newSpell({
-		spellID = 107428,
 		cooldown = 107428,
 		debuff = 107428,
 		requiredTree = 3,
@@ -83,7 +77,6 @@ function EventHorizon:InitializeClass()
 	
 	--Fist of Fury + Spinning Crane Kick
 	self:newSpell({
-		spellID = 113656,
 		cooldown = 113656,
 		playerbuff = 101546,
 		channeled = 113656,
@@ -93,7 +86,6 @@ function EventHorizon:InitializeClass()
 	
 	--Tigereye Brew
 	self:newSpell({
-		spellID = 125195,
 		playerbuff = 125195,
 		requiredTree = 3,
 		requiredLevel = 60,
@@ -103,7 +95,6 @@ function EventHorizon:InitializeClass()
 	
 	--Second tier talents
 	self:newSpell({
-		spellID = 124081,
 		playerbuff = 124081,
 		cooldown = {115098,124081},
 		cast = 123986,

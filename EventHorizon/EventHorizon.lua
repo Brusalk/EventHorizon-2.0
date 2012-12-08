@@ -602,7 +602,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a timed bar. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a timed bar while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
 	if not duration or type(duration)~= "number" or not layer or not barKey then ns:error("Module " .. moduleKey .. ": Invalid inputs to function addTimedBarSegment(moduleKey, spellbar, duration, layout, blendMode, color, [texture], [ticks]). Please check the API for valid values") return end
-	
+	--[[
 	local layout = ns:getLayout(barKey)
 	local blendMode = ns:getBlendMode(barKey)
 	local color = ns:getColor(barKey)
@@ -646,7 +646,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 			texture:SetTexture(unpack(color))
 		end
 		texture:SetBlendMode(blendMode)
-		texture:SetWidth(duration/ticks) -- not <correct></correct>
+		texture:SetWidth(duration/ticks) -- not corret
 		texture.maxWidth = duration/ticks
 
 		
@@ -696,7 +696,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	end)
 	
 	
-	
+	--]]
 	
 	
 	

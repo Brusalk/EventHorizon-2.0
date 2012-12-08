@@ -5,99 +5,87 @@ function EventHorizon:InitializeClass()
 	-- General rotation
 	
 	-- Icy Touch
-	self:NewSpell({
-		spellID = 55095,
-		debuff = true,
+	self:newSpell({
+		debuff = {55095,3},
 		refreshable = true,
-		dot = 3,
+		hasted = false,
 	})
 	
 	-- Plague Strike
-	self:NewSpell({
-		spellID = 55078,
-		debuff = true,
+	self:newSpell({
+		debuff = {55078,3},
 		refreshable = true,
-		dot = 3,
+		hasted = false,
 	})
 	
 	-- Blood Tap
-	self:NewSpell({
-		spellID = 45529,
-		playerbuff = true,
-		cooldown = true,
+	self:newSpell({
+		playerbuff = 45529,
+		cooldown = 45529,
 		requiredLevel = 64,
 	})
 	
 	-- Blood tree (no requiredTalent entries until trees are more solid)
 	
 	-- Rune Tap
-	self:NewSpell({
-		spellID = 48982,
-		cooldown = true,
+	self:newSpell({
+		cooldown = 48982,
 		requiredTree = 1,
 	})
 	
 	-- Vampiric Blood
-	self:NewSpell({
-		spellID = 55233,
-		playerbuff = true,
-		cooldown = true,
+	self:newSpell({
+		playerbuff = 55233,
+		cooldown = 55233,
 		requiredTree = 1,
 	})
 	
 	-- Bone Shield
-	self:NewSpell({
-		spellID = 49222,
-		playerbuff = true,
-		cooldown = true,
+	self:newSpell({
+		playerbuff = 49222,
+		cooldown = 49222,
 		requiredTree = 1,
 	})
 	
 	-- Dancing Rune Weapon
-	self:NewSpell({
-		spellID = 49028,
-		cooldown = true,
+	self:newSpell({
+		cooldown = 49028,
 		requiredTree = 1,
 	})
 	
 	-- Frost tree (again, no requiredTalents yet)
 	
 	-- Rime
-	self:NewSpell({
-		spellID = 59052,
-		playerbuff = true,
+	self:newSpell({
+		playerbuff = 59052,
 		requiredTree = 2,
 	})
 	
 	-- Pillar of Frost
-	self:NewSpell({
-		spellID = 51271,
-		playerbuff = true,
-		cooldown = true,
+	self:newSpell({
+		playerbuff = 51271,
+		cooldown = 51271,
 		requiredTree = 2,
 	})
 	
 	-- Unholy tree
 	
 	-- Unholy Blight
-	self:NewSpell({
-		spellID = 50536,
-		debuff = true,
+	self:newSpell({
+		debuff = 115989,
 		requiredTree = 3,
 	})
 	
 	-- Sudden Doom
-	self:NewSpell({
-		spellID = 81340,
-		playerbuff = true,
-		requiredTree = 2,
+	self:newSpell({
+		playerbuff = 81340,
+		requiredTree = 3,
 	})
 	
 	-- Shadow Infusion + Dark Transformation (Yes, they're exclusive)
-	self:NewSpell({
-		spellID = 91342,
-		playerbuff = {91342,63560},
+	self:newSpell({
+		playerbuff = {{91342,0},{63560,0}},
 		auraunit = 'pet',
-		requiredTree = 2,
+		requiredTree = 3,
 	})
 end

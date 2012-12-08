@@ -1,5 +1,4 @@
-## Interface: 40000
-## Title: EventHorizon_|c90C79C6EWarrior|r
+## Interface: 50001
 ## Author: Brusalk
 ## LoadOnDemand: 1
 ## Dependencies: EventHorizon

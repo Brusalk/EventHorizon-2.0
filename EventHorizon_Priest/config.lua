@@ -3,8 +3,8 @@ local usemouseover = true	-- Make this false or nil (or just delete the line alt
 function EventHorizon:InitializeClass()
 	self.config.gcdSpellID = 588 -- Inner Fire
 	self.config.hastedSpellID = {2006,10} -- Resurrection
+
 	
-		
 	--[[ 
 spellbar.config = {
 	cooldown = {}, -- a single spellID or a table of spellIDs of which the spellbar will show the longest
@@ -22,105 +22,94 @@ spellbar.config = {
 	
 	
 	
-	--[[-- Holy/Disc
+	-- Holy/Disc
 	
 	-- Evangelism/Archangel now disc only
 	self:newSpell({
-		spellID = 81659,
 		playerbuff = 81662,
-		cooldown = 81659,
+		cooldown = 81700,
 		refreshable = true,
 		requiredTree = 1,
 		requiredLevel = 50,
 	})
 	
-	-- Renew
+	-- Renew/PoM CD
 	self:newSpell({
-		spellID = 139,
-		playerbuff = true,
+		playerbuff = 139,
 		auraunit = usemouseover and 'mouseover' or 'target',
+		cooldown = 33076,
 		refreshable = true,
 		hasted = true,
-		requiredTree = {0,1,2},
-		requiredLevel = 8,
+		requiredLevel = 26,
+		stance = 0, -- keep it from being shown in shadowform
 	})
 	
 	-- Casts + Serendipity / Borrowed Time
 	self:newSpell({
-		spellID = 2061,
-		cast = {585,2061,8092,2050,14914,9484,32546,8129,596,2061},
-		playerbuff = {63731,59887},
-		requiredTree = {0,1,2},
+		cast = {32546,2061,2060,2050,14914,724,32375,129250,596,585,88685},
+		playerbuff = {{63731,0},{59887,0}},
+		stance = 0,-- keep it from being shown in shadowform
 	})
 	
 	-- Discipline
 	
 	-- Penance + Grace
 	self:newSpell({
-		spellID = 47540,
 		playerbuff = 47930,
-		channeled = true,
+		channeled = 47540,
 		numhits = 0,
-		cooldown = true,
+		cooldown = 47540,
 		refreshable = true,
 		auraunit = usemouseover and 'mouseover' or 'target',
 		requiredTree = 1,
 	})
 	
-	-- Weakened Soul
+	-- Weakened Soul/inner focus
 	self:newSpell({
-		spellID = 6788,
-		debuff = true,
+		debuff = 6788,
+		cooldown = 89485,
 		auraunit = usemouseover and 'mouseover' or 'target',
 		requiredTree = 1,
 	})
-	
 	-- Holy
 	
 	-- Holy Word: Chastise + Chakra effects
 	self:newSpell({
-		spellID = 88625,
-		playerbuff = {88682,88684},
+		playerbuff = {{88682,0},{88684,0}},
 		auraunit = usemouseover and 'mouseover' or 'target',
-		cooldown = true,
+		cooldown = 88684,
 		requiredTree = 2,
 	})
 	
 	-- Circle of Healing
 	self:newSpell({
-		spellID = 34861,
 		playerbuff = 88689,
-		cooldown = true,
+		cooldown = 34861,
 		requiredTree = 2,
 		requiredLevel = 59,
 	})
 	
-	-- Chakra
+	--Chakra
 	self:newSpell({
-		spellID = 14751,
-		playerbuff = {81207,81209,81206,81208},
-		cooldown = true,
+		playerbuff = {{81207,0},{81209,0},{81206,0},{81208,0}},
+		cooldown = 81206,
 		requiredTree = 2,
 		requiredLevel = 49,
 	})
-	]]
+	
 	
 	-- Shadow
 	
-	
-	
-	
-	
-		-- Vampiric Touch/swd cd
+	-- Vampiric Touch/swd cd
 	self:newSpell({
 		debuff = {34914,3},
 		cast = 34914,
 		cooldown = 32379,
 		refreshable = true,
 		hasted = true,
+		recast = true,
 		requiredTree = 3,
 		requiredLevel = 28,
-		stance = 1,
 	})
 	
 	-- Shadow Word: Pain/mind bender cd
@@ -131,7 +120,6 @@ spellbar.config = {
 		refreshable = true,
 		requiredTree = 3,
 		requiredLevel = 4,
-		stance = 1,
 	})
 	
 
@@ -140,12 +128,18 @@ spellbar.config = {
 	self:newSpell({
 		cast = {8092,73510},
 		cooldown = 8092,
-		buff = 81292,
+		playerbuff = 81292,
 		refreshable = true,
 		requiredTree = 3,
-		stance = 1,
 	})
 	
+	
+	-- Mind Flay/Devouring Plague (by request)
+	self:newSpell({
+		channel = {15407,3},
+		debuff = {2944,1},
+		requiredTree = 3,
+	})
 	
 	--lvl 90 talents
 	self:newSpell({ 
@@ -154,106 +148,5 @@ spellbar.config = {
 		requiredTalent = {16,17,18},
 	})
 
-
-		--lvl 90 talents
 	
-	--[[ Mind Flay/Sear + Shadow Word: Death + Orbs
-	self:newSpell({
-		spellID = 15407,
-		channeled = {{48045,5},{15407,3}},
-		cooldown = 32379,
-		refreshable = true,
-		requiredTree = 3,
-	})
-	]]
-	-- General
-	
-	-- Evangelism/Archangel now disc only
-	self:newSpell({
-		spellID = 81659,
-		buff = 81662,
-		cooldown = 81659,
-		refreshable = true,
-		requiredTree = 1,
-		requiredLevel = 50,
-	})
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	--[[
-		-- Vampiric Touch/swd cd
-	self:newSpell({
-		spellID = 34914,
-		debuff = true,
-		cast = true,
-		dot = 3,
-		cooldown = 32379,
-		refreshable = true,
-		hasted = true,
-		requiredTree = 3,
-		requiredLevel = 28,
-	})
-	
-	-- Shadow Word: Pain/mind bender cd
-	self:newSpell({
-		spellID = 589,
-		debuff = true,
-		dot = 3,
-		hasted = true,
-		cooldown = {123040, 34433},
-		refreshable = true,
-		requiredTree = 3,
-		requiredLevel = 4,
-	})
-	
-
-	
-	-- Mind Blast/Spike/Melt
-	self:newSpell({
-		spellID = 8092,
-		cast = {8092,73510},
-		cooldown = true,
-		playerbuff = 81292,
-		refreshable = true,
-		requiredTree = 3,
-	})
-	
-	
-	--lvl 90 talents
-	self:newSpell({ 
-		spellID = 120692,
-		cooldown = {120517, 120664, 110744, 122121, 121135, 127632}, -- halo, shadow halo, divine star, shadow divine star, cascade, shadow cascade
-		requiredLevel = 90,
-	})
-	
-	-- Mind Flay/Sear + Shadow Word: Death + Orbs
-	self:newSpell({
-		spellID = 15407,
-		channeled = {{48045,5},{15407,3}},
-		cooldown = 32379,
-		refreshable = true,
-		requiredTree = 3,
-	})
-	
-	-- General
-	
-	-- Evangelism/Archangel now disc only
-	self:newSpell({
-		spellID = 81659,
-		playerbuff = 81662,
-		cooldown = 81659,
-		refreshable = true,
-		requiredTree = 1,
-		requiredLevel = 50,
-	})
-	]]
-
-
 end

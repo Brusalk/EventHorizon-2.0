@@ -3,68 +3,57 @@ function EventHorizon:InitializeClass()
 	self.config.hastedSpellID = {56641,2} -- Steady Shot (Note: This probably isn't needed at all for Hunters, but it's here just in case)
 	
 	-- Serpent Sting
-	self:NewSpell({
-		spellID = 1978,
-		debuff = true,
-		dot = 3,
+	self:newSpell({
+		debuff = {1978,3},
 		refreshable = true,
 	})
 	
 	-- Black Arrow
-	self:NewSpell({
-		spellID = 3674,
-		debuff = true,
-		cooldown = true,
-		dot = 3,
+	self:newSpell({
+		debuff = {3674,3},
+		cooldown = 3674,
 		requiredTree = 3,
 		requiredLevel = 50,
 	})
 	
 	-- Explosive Shot
-	self:NewSpell({
-		spellID = 53301,
-		debuff = true,
-		cooldown = true,
-		dot = 1,
+	self:newSpell({
+		debuff = {53301,1},
+		cooldown = 53301,
 		requiredTree = 3,
 	})
 	
 	-- Chimaera Shot
-	self:NewSpell({
-		spellID = 53209,
+	self:newSpell({
 		--cast = 19434,
-		cooldown = true,
+		cooldown = 53209,
 		--playerbuff = {82925,82926}, -- "Ready, Set, Aim..." + "Fire!"
 		requiredTree = 2,
 		requiredLevel = 60,
 	})
 	
 	-- Kill Command + Killing Streak
-	self:NewSpell({
-		spellID = 34026,
-		cooldown = true,
+	self:newSpell({
+		cooldown = 34026,
 		requiredTree = 1,
 	})
 	
 	-- Steady/Cobra + Improved Steady Shot
-	self:NewSpell({
-		spellID = 56641,
+	self:newSpell({
 		cast = {56641,77767},
 		playerbuff = 53224,  --same  spellid for the new Steady Focus so leave Cata Improved Stead Shot id there
 		recast = true,
 	})
 		-- Aimed shot
-	self:NewSpell({
-		spellID = 19434,
+	self:newSpell({
 		cast = 19434,
-		playerbuff = {82925,82926}, -- "Ready, Set, Aim..." + "Fire!"
+		playerbuff = {{82925,0},{82926,0}}, -- "Ready, Set, Aim..." + "Fire!"
 		requiredTree = 2,
 	})
 	
 	-- Frenzy + Focus Fire (FF buff has the same duration as CD, no real reason to track it)
-	self:NewSpell({
-		spellID = 19615,
-		playerbuff = true,
+	self:newSpell({
+		playerbuff = 19615,
 		cooldown = 82692,
 		auraunit = 'pet',
 		unique = true,
@@ -74,56 +63,72 @@ function EventHorizon:InitializeClass()
 	})
 	
 	-- Bestial Wrath
-	self:NewSpell({
-		spellID = 19574,
+	self:newSpell({
 		playerbuff = 34471,
-		cooldown = true,
+		cooldown = 19574,
 		requiredTree = 1,
 		requiredLevel = 40,
 	})
 	
 	--- Dire Beast
-	self:NewSpell({
-		spellID = 120679,
-		cooldown = true,
+	self:newSpell({
+		cooldown = 120679,
 		requiredLevel = 75,
 	})
 	
-	--[[
-	--- Rapid Fire          ---- Incase you want to use this bar
-	self:NewSpell({
-		spellID = 3045,
-		cooldown = true,
+	--
+	--- Rapid Fire  
+	self:newSpell({
+		cooldown = 3045,
 		requiredLevel = 54,
-	})    ]]--
+	})    --]]
 
+	--- Readiness ]]
+	self:newSpell({
+		cooldown = 23989,
+		requiredLevel = 60,
+	})
+	
 	--[[  NOTE!
-	---Not  currently going to work unless we can find out how to recognize when of the "secondary" talents are being used. 
-	--- I've been looking all over the place and haven't found it yet. Something along the lines of  ... requiredTalent = {#)
+	--- In order to get the following talents to work you must delete the whole line that says "DELETE THIS LINE..."
+	--- If you do that then that talent will show up when you do a /reloadui
+	--- Copy and Paste the line back from one of the other talents to hide it again
 	]]--
 	
-		--[[
+	--[[ DELETE THIS LINE FOR THIS TALENT TO SHOW
 	--- Fervor --- TALENTED!
-	self:NewSpell({
-		spellID = 82726,
-		cooldown = true,
+	self:newSpell({
+		cooldown = 82726,
+		playerbuff = 82726,
 		requiredLevel = 60,
 	})
+	--]]
 
-	--- Readiness --- TALENTED!
-	self:NewSpell({
-		spellID = 23989,
-		cooldown = true,
+	--[[ DELETE THIS LINE FOR THIS TALENT TO SHOW
+	--Dire Beast --- TALENTED!
+	self:newSpell({
+		playerbuff = 120679,
 		requiredLevel = 60,
 	})
-	
-	--- Thrill of the Hunt --- TALENTED!
-	self:NewSpell({
-		spellID = 34720,
-		cooldown = true,
-		requiredLevel = 60,
-	})
-	
 	]]--
+	
+	
+	--[[ DELETE THIS LINE FOR THIS TALENT TO SHOW
+	--Thrill of the Hunt --- TALENTED!
+	self:newSpell({
+		playerbuff = 109306,
+		requiredLevel = 60,
+	})
+	]]--
+	
+	--[[ DELETE THIS LINE FOR THE TALENT BELOW TO SHOW
+	--A Murder of Crows/Blink Strike/Lynx Rush
+	self:newSpell({
+		debuff = {131894, 1},
+		cooldown = {131894, 120697, 130392,}, 
+		requiredLevel = 75,
+	})
+	--]]
+	
 	
 end

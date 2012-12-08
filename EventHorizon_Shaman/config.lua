@@ -5,141 +5,179 @@ function EventHorizon:InitializeClass()
 	self.config.hastedSpellID = {2008,10} -- Ancestral Spirit
 	
 	-- General
-	
-	-- Unleash Elements
-	self:NewSpell({
-		spellID = 73680,
-		cooldown = true,
-		requiredTree = {1,3},
-		requiredLevel = 81,
-	})
-	
-	-- Flame Shock
-	self:NewSpell({
-		spellID = 8050,
-		debuff = true,
-		cooldown = true,
-		requiredTree = {0,1,2},
-		requiredLevel = 5,
+
+
+
+
+	-- Ascendance
+	self:newSpell({
+		cooldown = 114049,
+		playerbuff = 114049,
+		requiredTree = {1,2,3},
+		requiredLevel = 90,
 	})
 	
 	-- Elemental
 	
+	-- Elemental
+	
+	-- Flame Shock
+	self:newSpell({
+		debuff = {8050,3},
+		cooldown = 8050,
+		requiredTree = {0,1},
+		requiredLevel = 5,
+	})
+
 	-- Lava Burst
-	self:NewSpell({
-		spellID = 51505,
-		cast = true,
-		cooldown = true,
+	self:newSpell({
+		cast = 51505,
+		cooldown = 51505,
 		requiredTree = 1,
 		requiredLevel = 34,
 	})
-	
-	-- Lightning Bolt + Chain Lightning + Earthquake + Lightning Shield Charges (minstacks 4)
-	self:NewSpell({
-		spellID = 403,
-		cast = {403,421},
-		channeled = 61882,
-		numhits = 0,
-		cooldown = 421,
-		playerbuff = 324,
-		minstacks = 4,
-		requiredTree = {0,1},
+
+	-- Lightning Bolt + Chain Lightning + Earthquake + Lightning Shield Charges (minstacks 2)
+	self:newSpell({
+		cast = {403,421,61882},
+		cooldown = 61882,
+		requiredTree = 1,
+		playerbuff = 324,  
+		icon = 324,
 	})
+
+	-- Unleash Elements
+	self:newSpell({
+		cooldown = 73680,
+		requiredTree = 1,
+		requiredLevel = 81,
+		talent = 16
+	})
+	
+	--[[ Delete this line for elemental mastery talent 
 	
 	-- Elemental Mastery
-	self:NewSpell({
-		spellID = 16166,
-		cooldown = true,
-		playerbuff = true,
+	self:newSpell({
+		cooldown = 16166,
+		playerbuff = 16166,
 		requiredTree = 1,
-		requiredLevel = 49,
+		requiredLevel = 60,
+		--requiredTalent = 10,
+	}) 
+	--]]
+
+	-- Elemental Blast
+	self:newSpell({
+		cooldown = 117014,
+		requiredTree = 1,
+		requiredLevel = 90,
+		talent = 18
 	})
 	
-	-- Enhancement
 	
-	-- Maelstrom + Unleash Elements
-	self:NewSpell({
-		spellID = 53817,
+	
+	-- Enhancement --
+	
+	--8050 -- Flame shock
+	
+	-- Flame Shock
+	self:newSpell({
+		debuff = {8050, 3},
+		cooldown = 8050,
+		requiredTree = 2,
+	})
+	
+	-- Stormstrike / Maelstrom Weapon
+	self:newSpell({
+		cooldown = 17364,
+		requiredTree = 2,
+	})
+	
+	-- Lavalash / Searing Flames
+	self:newSpell({
+		cooldown = 60103,
+		playerbuff = 77661,
+		requiredTree = 2,
+	})
+	
+	-- Unleash Elements
+	self:newSpell({
 		cooldown = 73680,
-		playerbuff = true,
-		requiredTree = 2,
-		requiredLevel = 59,
-	})
-	
-	-- Stormstrike / Primal Strike
-	self:NewSpell({
-		spellID = 17364,
-		debuff = true,
-		cooldown = true,
-		requiredTree = {0,2}
-	})
-	
-	-- Lava Lash (will add Searing Flames when the spellID is known)
-	self:NewSpell({
-		spellID = 60103,
-		cooldown = true,
 		requiredTree = 2,
 	})
 	
-	-- Resto
-	
-	-- Riptide
-	self:NewSpell({
-		spellID = 61295,
-		playerbuff = true,
-		cooldown = true,
-		dot = 3,
-		hasted = true,
-		requiredTree = 3,
-		requiredLevel = 69,			
+	-- Wolves
+	self:newSpell({
+		cooldown = 51533,
+		requiredTree = 2,
 	})
 	
-	-- Single Target Heals + Offensive Casts + Shock CD + Focused Insight
-	self:NewSpell({
-		spellID = 331,
-		cast = {331,8004,77472,403,421,51505},
-		cooldown = 8042,
-		playerbuff = 77800,
+	
+	-- Restoration --
+	
+	--Riptide
+	self:newSpell({
+		playerbuff = {61295,3},
+		cooldown = 61295,
+		requiredTree = 3,
+		auraunit = "target", 
+	})
+	
+	-- Unleash Elements
+	self:newSpell({
+		playerbuff = 73685,
+		cooldown = 73680,		
 		requiredTree = 3,
 	})
 	
-	-- AoE Heals + Tidal Waves
-	self:NewSpell({
-		spellID = 1064,
-		cast = {1064,73920},
+	--Casts/Chainheal CD if glyphed
+	self:newSpell({
+		cooldown = 1064,
+		cast = {1064, 77472, 8004, 331, 403},
+		requiredTree = 3,		
+	})
+	
+	-- Tidal Waves/Healing Rain
+	self:newSpell({
+		cast = 73920,
 		cooldown = 73920,
-		playerbuff = 51562,
-		auraunit = usemouseover and 'mouseover' or 'target',
+		playerbuff = 53390,
 		requiredTree = 3,
-		requiredLevel = 40,
 	})
 	
 	-- Earth Shield
-	self:NewSpell({
-		spellID = 974,
-		playerbuff = true,
-		auraunit = usemouseover and 'mouseover' or 'target',
+	self:newSpell({
+		playerbuff = 974,
+		auraunit = "target", 
 		requiredTree = 3,
 	})
 	
-	-- Tertiaries
 	
-	-- Fire Nova
-	self:NewSpell({
-		spellID = 1535,
-		playerbuff = 16246,
-		cooldown = true,
-		requiredTree = {1,2},
-		requiredLevel = 28,
+	
+	
+	
+	
+	
+	
+	
+	-- 60 Talents
+	
+	--[[ Delete this line for Elemental Mastery talent bar
+	self:newSpell({-- Elemental Mastery
+		cooldown = 16166,
+		playerbuff = 16166,
+		requiredLevel = 60,
+		requiredTalent = 10
 	})
+	--]]
 	
-	-- Thunderstorm
-	self:NewSpell({
-		spellID = 51490,
-		cooldown = true,
-		requiredTree = 1,
+	--[[ Delete this line for Ancestral Swiftness talent bar
+	self:newSpell({-- Ancestral Swiftness
+		cooldown = 16118,
+		playerbuff = 16118,
+		requiredLevel = 60,
+		requiredTalent = 11
 	})
-	
-
+	--]]
 
 end

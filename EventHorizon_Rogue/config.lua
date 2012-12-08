@@ -4,28 +4,23 @@ function EventHorizon:InitializeClass()
 	-- General
 	
 	-- Slice and Dice
-	self:NewSpell({
-		spellID = 5171,
-		playerbuff = true,
+	self:newSpell({
+		playerbuff = 5171,
 		refreshable = true,
 		requiredLevel = 22,
 	})
 	
 	-- Recouperate (Sub)
-	self:NewSpell({
-		spellID = 73651,
-		playerbuff = true,
-		dot = 3,
+	self:newSpell({
+		playerbuff = {73651,3},
 		refreshable = true,
 		requiredTree = 3,
 		requiredLevel = 12,
 	})
 	
 	-- Rupture
-	self:NewSpell({
-		spellID = 1943,
-		debuff = true,
-		dot = 2,
+	self:newSpell({
+		debuff = {1943,2},
 		refreshable = true,
 		requiredLevel = 46,
 	})
@@ -33,9 +28,8 @@ function EventHorizon:InitializeClass()
 	-- Assassination
 	
 	-- Envenom
-	self:NewSpell({
-		spellID = 32645,
-		playerbuff = true,
+	self:newSpell({
+		playerbuff = 32645,
 		requiredTree = 1,
 		requiredLevel = 54,
 	})
@@ -43,43 +37,38 @@ function EventHorizon:InitializeClass()
 	-- Combat
 	
 	-- Revealing Strike
-	self:NewSpell({
-		spellID = 84617,
-		debuff = true,
+	self:newSpell({
+		debuff = 84617,
 		requiredTree = 2,
 		requiredLevel = 29,
 	})
 	
 	-- Killing Spree
-	self:NewSpell({
-		spellID = 51690,
-		playerbuff = true,
-		cooldown = true,
+	self:newSpell({
+		playerbuff = 51690,
+		cooldown = 51690,
 		requiredTree = 2,
 		requiredLevel = 69,
 	})
 	
 	-- Adrenaline Rush
-	self:NewSpell({
-		spellID = 13750,
-		playerbuff = true,
-		cooldown = true,
+	self:newSpell({
+		playerbuff = 13750,
+		cooldown = 13750,
 		requiredTree = 2,
 		requiredLevel = 49,
 	})
 	
 	--[[
 	-- Blade Flurry
-	self:NewSpell({
-		spellID = 13877,
-		playerbuff = true,
-		cooldown = true,
+	self:newSpell({
+		playerbuff = 13877,
+		cooldown = 13877,
 		requiredTree = 2,
 	})
 	
 	-- Bandit's Guile
-	self:NewSpell({
-		spellID = 84747,
+	self:newSpell({
 		debuff = {84747,84746,84745},
 		requiredTree = 2,
 		requiredLevel = 59,
@@ -88,48 +77,42 @@ function EventHorizon:InitializeClass()
 	-- Subtlety
 	
 	-- Hemo
-	self:NewSpell({
-		spellID = 16511,
-		debuff = {35290,50271,30070,16511,33878,33876},
-		unique = true,
+	self:newSpell({
+		debuff = {{16511, 3}, {89775,3}},
 		refreshable = true,
 		requiredTree = 3,
 		requiredLevel = 29,
 	})
 	
 	-- Shadow Dance
-	self:NewSpell({
-		spellID = 51713,
-		playerbuff = true,
-		cooldown = true,
+	self:newSpell({
+		playerbuff = 51713,
+		cooldown = 51713,
 		requiredTree = 3,
 		requiredLevel = 69,
 	})
 	
 	-- Shadowstep
-	self:NewSpell({
-		spellID = 36554,
+	self:newSpell({
 		playerbuff = 36563,
 		uniqueID = 36563, -- Ambush/Garrote only
-		cooldown = true,
+		cooldown = 36554,
 		requiredTree = 3,
 	})
 	
 	-- General/Bottom
 	
 	-- Deadly Poison
-	self:NewSpell({
-		spellID = 2818,
-		debuff = true,
+	self:newSpell({
+		debuff = 2818,
 		refreshable = true,
 		requiredLevel = 30,
 	})
 	
 	
 	-- Overkill
-	self:NewSpell({
-		spellID = 58426,
-		playerbuff = true,
+	self:newSpell({
+		playerbuff = 58426,
 		requiredTree = 1,
 		requiredLevel = 49,
 	})

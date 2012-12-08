@@ -8,7 +8,6 @@ function EventHorizon:InitializeClass()
 
 	-- Rip 
 	self:newSpell({
-		spellID = 1079,
 		debuff = {1079,2},
 		refreshable = true,
 		stance = 3,
@@ -17,7 +16,6 @@ function EventHorizon:InitializeClass()
 	
 	-- Rake
 	self:newSpell({
-		spellID = 1822,
 		debuff = {1822,3},
 		refreshable = true,
 		stance = 3,
@@ -26,15 +24,13 @@ function EventHorizon:InitializeClass()
 	
 	-- Savage Roar
 	self:newSpell({
-		spellID = 52610,
 		playerbuff = 52610,
 		stance = 3,
 		requiredTree = 2,
 	})
 	
-	-- Tiger's Fury
+	-- Tiger's Fury,
 	self:newSpell({
-		spellID = 5217,
 		cooldown = 5217,
 		playerbuff = 5217,
 		stance = 3,
@@ -44,7 +40,6 @@ function EventHorizon:InitializeClass()
 		
 	-- Berserk
 	self:newSpell({
-		spellID = 50334,
 		playerbuff = 50334,
 		cooldown = 50334,
 		stance = 3,
@@ -56,31 +51,26 @@ function EventHorizon:InitializeClass()
 
 	-- Mangle
 	self:newSpell({
-		spellID = 33878,
 		unique = true,
 		refreshable = true,
-		cooldown = true,
+		cooldown = 33878,
 		stance = 1,
 	})	
 	
 	-- Lacerate
 	self:newSpell({
-		spellID = 33745,
-		debuff = true,
+		debuff = {33745,3},
 		refreshable = true,
-		cooldown = true,
-		dot = 3,
+		cooldown = 33745,
 		stance = 1,
 		requiredLevel = 18,
 	})
 	
 	-- Thrash
 	self:newSpell({
-		spellID = 106830,
-		debuff = true, -- "true" for bleed debuff, "115798" for Weakened Blows debuff
+		debuff = {106830,3}, -- "true" for bleed debuff, "115798" for Weakened Blows debuff
 		refreshable = true,
-		dot = 3,
-		cooldown = true,
+		cooldown = 106830,
 		stance = 1,
 		requiredTree = {2,3},
 		requiredLevel = 28,
@@ -88,17 +78,15 @@ function EventHorizon:InitializeClass()
 
 	-- Swipe
 	self:newSpell({
-		spellID = 779,
-		cooldown = true,
+		cooldown = 779,
 		stance = 1,
 		requiredLevel = 22,
 	})
 	
 	-- Enrage
 	self:newSpell({
-		spellID = 5229,
-		playerbuff = true,
-		cooldown = true,
+		playerbuff = 5229,
+		cooldown = 5229,
 		stance = 1,
 		requiredTree = 3,
 		requiredLevel = 10,
@@ -106,9 +94,8 @@ function EventHorizon:InitializeClass()
 
 	-- Barkskin
 	self:newSpell({
-		spellID = 22812,
-		playerbuff = true,
-		cooldown = true,
+		playerbuff = 22812,
+		cooldown = 22812,
 		stance = 1,
 		requiredLevel = 44,
 	})
@@ -118,7 +105,6 @@ function EventHorizon:InitializeClass()
 	
 	-- Starsurge
 	self:newSpell({
-		spellID = 78674,
 		cast = 78674,
 		cooldown = 78674,
 		playerbuff = 93400, -- Shooting Stars
@@ -127,7 +113,6 @@ function EventHorizon:InitializeClass()
 
 	-- Wrath
 	self:newSpell({
-		spellID = 5176,
 		playerbuff = 48517, -- If using another method to track Eclipse phases, can monitor Solar Empowerment with "129633"
 		cast = 5176,
 		requiredTree = {0,1},
@@ -135,7 +120,6 @@ function EventHorizon:InitializeClass()
 	
 	-- Starfire
 	self:newSpell({
-		spellID = 2912,
 		playerbuff = 48518, -- If using another method to track Eclipse phases, can monitor Lunar Empowerment with "129632"
 		cast = 2912,
 		requiredLevel = 8,
@@ -144,9 +128,7 @@ function EventHorizon:InitializeClass()
 	
 	-- [Sun/Moon]fire
 	self:newSpell({
-		spellID = 8921,
-		debuff = {8921,93402},
-		hasted = true,
+		debuff = {{8921,0},{93402,0}},
 		refreshable = true,
 		requiredLevel = 4,
 		requiredTree = {0,1},
@@ -155,7 +137,6 @@ function EventHorizon:InitializeClass()
 
 	-- Starfall
 	self:newSpell({
-		spellID = 48505,
 		playerbuff = 48505,
 		cooldown = 48505,
 		requiredLevel = 69,
@@ -166,10 +147,8 @@ function EventHorizon:InitializeClass()
 	
 	-- Lifebloom
 	self:newSpell({
-		spellID = 33763,
-		playerbuff = true,
+		playerbuff = {33763,1},
 		auraunit = usemouseover and 'mouseover' or 'target',
-		dot = 1,
 		hasted = true,
 		refreshable = true,
 		requiredLevel = 64,
@@ -178,31 +157,26 @@ function EventHorizon:InitializeClass()
 	
 	-- Rejuvenation + Swiftmend
 	self:newSpell({
-		spellID = 774,
-		playerbuff = true,
+		playerbuff = {774,3},
 		cooldown = 18562,
 		auraunit = usemouseover and 'mouseover' or 'target',
-		dot = 3,
 		hasted = true,
 		requiredTree = 4,
 	})
 
 	-- Casted Heals + Nature's Swiftness/Cenarion Ward
 	self:newSpell({
-		spellID = 8936,
 		cast = {8936,5185,50464},
 		cooldown = {17116,102351},
-		playerbuff = true,
+		playerbuff = {8936,2},
 		auraunit = usemouseover and 'mouseover' or 'target',
-		dot = 2,
 		hasted = true,
 		requiredTree = 4,
 	})
 	
 	-- Wild Growth + Harmony
 	self:newSpell({
-		spellID = 48438,
-		cooldown = true,
+		cooldown = 48438,
 		playerbuff = 100977,
 		requiredTree = 4,
 	})	

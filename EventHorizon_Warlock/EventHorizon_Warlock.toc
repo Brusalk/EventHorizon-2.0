@@ -1,6 +1,6 @@
-## Interface: 40000
+## Interface: 50001
 ## Title: EventHorizon_|c909482c9Warlock|r
-## Author: Taroven
+## Author: Brusalk
 ## LoadOnDemand: 1
 ## Dependencies: EventHorizon
 ## OptDeps: 
