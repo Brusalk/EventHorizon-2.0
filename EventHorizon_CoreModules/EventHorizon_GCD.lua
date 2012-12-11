@@ -39,7 +39,7 @@ local function onUpdateGCD(self,elapsed)
 		end
 		
 		local remaining = math.max(start+duration - GetTime(), 0) -- Taro: Try to avoid going past the nowline at all
-		local width = ns:getPositionByTime(remaining)
+		local width = ns:getPositionByNow(remaining)
 		if remaining > 0 then
 			--print(width)
 			t.gcd:SetWidth(width)		
@@ -128,8 +128,8 @@ end
 
 local function init()
 	
-	t.gcd:SetPoint("TOPLEFT", ns.barAnchor, "TOPLEFT")
-	t.gcd:SetPoint("BOTTOMLEFT", ns.barAnchor, "BOTTOMLEFT")
+	t.gcd:SetPoint("TOPLEFT", ns.nowLine, "TOPRIGHT")
+	t.gcd:SetPoint("BOTTOMLEFT", ns.nowLine, "BOTTOMRIGHT")
 	--[[t.gcd:SetScript("OnShow", function()
 		for spellbar, gcdTexture in pairs(gcdTextures) do
 			gcdTexture:Show()
