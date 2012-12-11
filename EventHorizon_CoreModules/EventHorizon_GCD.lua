@@ -128,8 +128,9 @@ end
 
 local function init()
 	
-	t.gcd:SetPoint("TOPLEFT", ns.nowLine, "TOPRIGHT")
-	t.gcd:SetPoint("BOTTOMLEFT", ns.nowLine, "BOTTOMRIGHT")
+	t.gcd:SetPoint("TOP", ns.barAnchor, "TOP")
+	t.gcd:SetPoint("BOTTOM", ns.barAnchor, "BOTTOM")
+	t.gcd:SetPoint("LEFT", ns.nowLine, "RIGHT")
 	--[[t.gcd:SetScript("OnShow", function()
 		for spellbar, gcdTexture in pairs(gcdTextures) do
 			gcdTexture:Show()
