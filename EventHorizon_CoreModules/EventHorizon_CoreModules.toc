@@ -10,3 +10,7 @@ EventHorizon_Cooldown.lua
 EventHorizon_Debuff.lua
 EventHorizon_GCD.lua
 EventHorizon_Cast.lua
+EventHorizon_ReqSpec.lua
+EventHorizon_Reqlevel.lua
+EventHorizon_ReqTalent.lua
+EventHorizon_ReqGlyph.lua

@@ -4,6 +4,7 @@ EventHorizon = ns
 EH = ns
 
 
+
 -- [[ Base Frames ]] --
 ns.frame = CreateFrame("frame")
 ns.barAnchor = CreateFrame("frame")
@@ -93,7 +94,7 @@ end
 function ns:error(fxn, errorKey)
 	if not fxn or not DEBUG then return end
 	if errorKey then
-		error("Error in function " .. fxn .. ":" .. strjoin(" ", printHelp(errors[fxn][errorKey])))
+		error("Error in function " .. fxn .. ":" .. strjoin(" ", printhelp(errors[fxn][errorKey])))
 	else
 		error("Error:" .. strjoin(" ", printhelp(fxn)))
 	end
@@ -278,6 +279,9 @@ function ns:disableModule(key)
 	debug("Disabled Module " .. key)
 end
 
+function ns:isModuleEnabled(key)
+	return ns.modules[key].active
+end
 
 -- [[ Module API ]] --
 
@@ -324,13 +328,12 @@ ns:addError("unregisterModuleEvent", {inputs = "one or more inputs of moduleKey,
 function ns:unregisterModuleEvent(moduleKey, ...)
 	if select('#',...) == 0 or not moduleKey then ns:error("registerModuleEvent", "inputs") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to register an event. Ensure that the module is enabled") return end
-	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to register event while disabled") return end
 
 	local tmp = 1
 	local event = ...
 	while true do
 		event = select(tmp,...)
-		if event then
+		if event and ns.events[event] then
 			if ns.events[event][moduleKey] then
 				ns.events[event][moduleKey] = nil
 				local test
@@ -426,7 +429,7 @@ end
 function ns:addSpellbarRequirement(moduleKey, optionsKey, requirementFunction) -- requirementFunction is passed a spellbar. Should return true if the spellbar should be set to active for this requirement
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a spellbar requirement option. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a spellbar requirement option while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
-	if not optionsKey or default == nil then error("Error in inputs for EventHorizon:addSpellbarRequirement. Check the API for valid values/input types") return end
+	if not optionsKey or requirementFunction == nil then error("Error in inputs for EventHorizon:addSpellbarRequirement. Check the API for valid values/input types") return end
 	if ns.spellbars.required[optionsKey] then error("Input for optionsKey for EventHorizon:addSpellbarRequirement() already exists. Please ensure that you don't have duplicate modules installed in different folders") return end
 
 	ns.spellbars.required[optionsKey] = {}		 -- This table stores all of the spellbars that meet the most recent checkRequirements as returned by requirementFunction.
@@ -943,7 +946,8 @@ function ns:checkRequirements()
 		local active = true
 		debug("Start checkRequirements for spellbar index", spellbar.index)
 		for moduleKey, requirements in pairs(ns.validatorFunctions.addSpellbarRequirement) do
-			if ns.modules[moduleKey].active then-- make sure the module that added the requirements actually active
+			debug("Module Check:", moduleKey)
+			if ns.modules[moduleKey].active then-- make sure the module that added the requirements is actually active
 				for optionsKey, requirementFunction in pairs(requirements) do
 					if not requirementFunction(spellbar) then -- One of the requirements setup for this bar were not met, so don't show this spellbar
 						debug("Failed requirement: ", optionsKey)
@@ -954,7 +958,7 @@ function ns:checkRequirements()
 				end
 			end
 		end
-		if active then -- none of the spellbars were reported as should be hidden, so add it to our active list
+		if active then -- none of the modules reported the spell bar as should be hidden, so add it to our active list
 			debug("Added", spellbar.index)
 			table.insert(ns.spellbars.active, spellbar)
 		end
@@ -1076,7 +1080,7 @@ ns:registerModuleEvent("core", function(...)
 	LoadAddOn("EventHorizon_".. class:sub(1,1)..class:sub(2):lower())
 	EventHorizon:InitializeClass()
 	
-	ns:registerModuleEvent("core", function(...)
+	--[[ns:registerModuleEvent("core", function(...)
 		if not addonInit then -- make sure that we're not waiting on the addon to load still (Stupid f'ing GetShapeshiftForm)
 			ns:applySettings()
 		end
@@ -1092,7 +1096,7 @@ ns:registerModuleEvent("core", function(...)
 	"GLYPH_UPDATED",
 	"GLYPH_DISABLED",
 	"PLAYER_ALIVE"
-	)
+	)--]]
 
 	ns.barAnchor:SetWidth(1)
 	ns:applySettings() -- Since modules load after EventHorizon loads they just do all their stuff after we go on with our business.
