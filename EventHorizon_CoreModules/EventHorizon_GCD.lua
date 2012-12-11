@@ -30,14 +30,15 @@ local GetTime = GetTime
 -- [[ Helper Functions ]] --
 local function onUpdateGCD(self,elapsed)
 	timeElapsed = timeElapsed + elapsed
-	if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. 
+	if timeElapsed >= secondsPerPixel then -- Taro: Limit the hard stuff to only when we have to move at least 1 pixel. 
+		timeElapsed = timeElapsed - elapsed -- Taro: More accurate than setting to 0, ensures consistent update
+		
 		if not(t.gcd.active) then
 			t.gcd:SetScript("OnUpdate", nil)
 			return t.gcd:Hide()
 		end
 		
-		timeElapsed = 0
-		local remaining = start+duration - GetTime()
+		local remaining = math.min(start+duration - GetTime(), 0) -- Taro: Try to avoid going past the nowline at all
 		local width = ns:getPositionByTime(remaining)
 		if remaining > 0 then
 			--print(width)
@@ -62,6 +63,8 @@ local function checkGCD()
 		if not(t.gcd.active) then
 			print("Starting GCD")
 			t.gcd.active = true
+			
+			timeElapsed = secondsPerPixel -- Taro: Fix for GCD line appearing for a moment at the nowline
 			
 			t.gcd:Show()
 			t.gcd:SetScript("OnUpdate", onUpdateGCD) -- Taro: Save memory by using function ref instead of creating an anonymous function every time
