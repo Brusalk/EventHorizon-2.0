@@ -749,8 +749,16 @@ function ns:getPositionByTime(t)
 	-- each pixel is (future-past)/width seconds long
 	-- the beginning of the bar is the far left, so an input of -3 should return an offset of 0
 	-- a value of 0 would equal 3 s in the future if we recenter the bar around t = -3
+	return ns:getPositionByNow(t) + (width/(future-past))*-past
+end
+
+function ns:getPositionByNow(t) -- Same as ByTime but assumes anchor off of new line.
+	local past, future, width = ns.config.past, ns.config.future, ns.config.width - (ns.config.icons and (ns.config.iconWidth < 1 and (ns.config.width-2*ns.config.padding)*ns.config.iconWidth or ns.config.iconWidth)+1 or 0)
+	-- each pixel is (future-past)/width seconds long
+	-- the beginning of the bar is the nowLine, so an input of -3 should return an offset of -3*(width/(future-past))
+	-- a value of 0 would equal 3 s in the future if we recenter the bar around t = -3
 	t = t > future and future or t < past and past or t -- limit the return to actually be in bounds
-	return t*(width/(future-past)) + (width/(future-past))*-past
+	return t*(width/(future-past))
 end
 
 ns:addError("newSpell", {
