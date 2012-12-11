@@ -25,6 +25,7 @@ local past, future, width, timeElapsed
 local start, duration
 
 local GetSpellCooldown = GetSpellCooldown
+local GetTime = GetTime
 
 -- [[ Helper Functions ]] --
 local function onUpdateGCD(self,elapsed)
@@ -34,14 +35,16 @@ local function onUpdateGCD(self,elapsed)
 			t.gcd:SetScript("OnUpdate", nil)
 			return t.gcd:Hide()
 		end
-		duration = duration - timeElapsed
+		
 		timeElapsed = 0
-		local width = ns:getPositionByTime(duration)
+		local width = ns:getPositionByTime(start+duration - GetTime())
 		if duration > 0 then
 			--print(width)
 			t.gcd:SetWidth(width)		
 		else
 			t.gcd.active = nil
+			t.gcd:SetScript("OnUpdate", nil)
+			t.gcd:Hide()
 		end
 	end
 end
