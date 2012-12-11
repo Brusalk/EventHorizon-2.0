@@ -38,7 +38,7 @@ local function onUpdateGCD(self,elapsed)
 			return t.gcd:Hide()
 		end
 		
-		local remaining = math.min(start+duration - GetTime(), 0) -- Taro: Try to avoid going past the nowline at all
+		local remaining = math.max(start+duration - GetTime(), 0) -- Taro: Try to avoid going past the nowline at all
 		local width = ns:getPositionByTime(remaining)
 		if remaining > 0 then
 			--print(width)
