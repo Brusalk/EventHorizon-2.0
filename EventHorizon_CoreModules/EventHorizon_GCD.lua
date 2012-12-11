@@ -25,23 +25,28 @@ local past, future, width, timeElapsed
 local start, duration
 
 local GetSpellCooldown = GetSpellCooldown
+local GetTime = GetTime
 
 -- [[ Helper Functions ]] --
 local function onUpdateGCD(self,elapsed)
 	timeElapsed = timeElapsed + elapsed
-	if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. 
+	if timeElapsed >= secondsPerPixel then -- Taro: Limit the hard stuff to only when we have to move at least 1 pixel. 
+		timeElapsed = timeElapsed - elapsed -- Taro: More accurate than setting to 0, ensures consistent update
+		
 		if not(t.gcd.active) then
 			t.gcd:SetScript("OnUpdate", nil)
 			return t.gcd:Hide()
 		end
-		duration = duration - timeElapsed
-		timeElapsed = 0
-		local width = ns:getPositionByTime(duration)
-		if duration > 0 then
+		
+		local remaining = math.max(start+duration - GetTime(), 0) -- Taro: Try to avoid going past the nowline at all
+		local width = ns:getPositionByNow(remaining)
+		if remaining > 0 then
 			--print(width)
 			t.gcd:SetWidth(width)		
 		else
 			t.gcd.active = nil
+			t.gcd:SetScript("OnUpdate", nil)
+			t.gcd:Hide()
 		end
 	end
 end
@@ -59,6 +64,8 @@ local function checkGCD()
 			print("Starting GCD")
 			t.gcd.active = true
 			
+			timeElapsed = secondsPerPixel -- Taro: Fix for GCD line appearing for a moment at the nowline
+			
 			t.gcd:Show()
 			t.gcd:SetScript("OnUpdate", onUpdateGCD) -- Taro: Save memory by using function ref instead of creating an anonymous function every time
 		end
@@ -69,6 +76,8 @@ end
 
 local function updateSettings(spellbar)
 	print("EH_GCD: Updatin' dem settins")
+	t.gcd:SetPoint("LEFT", ns.barAnchor, "LEFT", ns:getPositionByTime(0), 0)
+	
 	local barHeight = spellbar:GetHeight()
 	local layout = ns:getLayout("gcd")
 	local gcdBar = ns:getConfig("gcdBar")
@@ -121,8 +130,9 @@ end
 
 local function init()
 	
-	t.gcd:SetPoint("TOPLEFT", ns.barAnchor, "TOPLEFT")
-	t.gcd:SetPoint("BOTTOMLEFT", ns.barAnchor, "BOTTOMLEFT")
+	t.gcd:SetPoint("TOP", ns.barAnchor, "TOP")
+	t.gcd:SetPoint("BOTTOM", ns.barAnchor, "BOTTOM")
+	t.gcd:SetPoint("LEFT", ns.barAnchor, "LEFT", ns:getPositionByTime(0), 0)
 	--[[t.gcd:SetScript("OnShow", function()
 		for spellbar, gcdTexture in pairs(gcdTextures) do
 			gcdTexture:Show()
