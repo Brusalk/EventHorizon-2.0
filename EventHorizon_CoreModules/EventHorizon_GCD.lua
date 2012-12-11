@@ -19,36 +19,51 @@ local gcdTextures = {}
 
 t.gcd = CreateFrame("frame") -- GCD Anchor Frame
 
+-- [[ Variables ]] --
+local secondsPerPixel = 0
+local past, future, width, timeElapsed
+local start, duration
 
+local GetSpellCooldown = GetSpellCooldown
 
 -- [[ Helper Functions ]] --
+local function onUpdateGCD(self,elapsed)
+	timeElapsed = timeElapsed + elapsed
+	if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. 
+		if not(t.gcd.active) then
+			t.gcd:SetScript("OnUpdate", nil)
+			return t.gcd:Hide()
+		end
+		duration = duration - timeElapsed
+		timeElapsed = 0
+		local width = ns:getPositionByTime(duration)
+		if duration > 0 then
+			--print(width)
+			t.gcd:SetWidth(width)		
+		else
+			t.gcd.active = nil
+		end
+	end
+end
 
-local function startGCD()
-	local start, duration = GetSpellCooldown(ns.config.gcdSpellID)
+local function checkGCD()
+	
+	start, duration = GetSpellCooldown(ns.config.gcdSpellID)
 	if start and duration and duration > 0 then
-		local past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.config.width - (ns.config.icons and (ns.config.iconWidth < 1 and (ns.config.width-2*ns.config.padding)*ns.config.iconWidth or ns.config.iconWidth)+1 or 0), 0
-		local secondsPerPixel = 0
-		t.gcd:SetWidth(ns:getPositionByTime(duration))
-		t.gcd:Show()
-		print("Starting GCD")
-		t.gcd:SetScript("OnUpdate", function(self, elapsed, ...)
+		past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.config.width - (ns.config.icons and (ns.config.iconWidth < 1 and (ns.config.width-2*ns.config.padding)*ns.config.iconWidth or ns.config.iconWidth)+1 or 0), 0
+		secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
+		
+		-- t.gcd:SetWidth(ns:getPositionByTime(duration)) -- Taro: This is already set in onupdate, no need to initialize
+		
+		if not(t.gcd.active) then
+			print("Starting GCD")
+			t.gcd.active = true
 			
-			secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
-			timeElapsed = timeElapsed + elapsed
-			if timeElapsed >= secondsPerPixel then -- Limit the hard stuff to only when we have to move at least 1 pixel. 
-				duration = duration - timeElapsed
-				timeElapsed = 0
-				local width = ns:getPositionByTime(duration)
-				if duration > 0 then
-					--print(width)
-					t.gcd:SetWidth(width)
-					
-				else
-					t.gcd:SetScript("OnUpdate", nil)
-					t.gcd:Hide()
-				end
-			end
-		end)
+			t.gcd:Show()
+			t.gcd:SetScript("OnUpdate", onUpdateGCD) -- Taro: Save memory by using function ref instead of creating an anonymous function every time
+		end
+	else
+		t.gcd.active = nil -- Taro: active == nil will clear the onupdate next time it cycles.
 	end
 end
 
@@ -81,17 +96,7 @@ end
 local function enable()
 	-- Register for SPELL_UPDATE_COOLDOWN
 	print("EH_GCD: Registered Event")
-	ns:registerModuleEvent(moduleKey, function()
-
-		local curTime = GetTime()
-		local gcdTime = select(2,GetSpellCooldown(ns.config.gcdSpellID))
-		gcdTime = gcdTime > 0.5 and gcdTime or 1.5
-		if curTime > gcdTime/2+lastGCDTime then -- If it's been at least half a GCD then update the GCD
-			print("GCD START")
-			startGCD()
-			lastGCDTime = curTime
-		end
-	end,
+	ns:registerModuleEvent(moduleKey, checkGCD,
 	"SPELL_UPDATE_COOLDOWN"
 	)
 	
