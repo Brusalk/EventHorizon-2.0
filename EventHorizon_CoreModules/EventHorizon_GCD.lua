@@ -37,8 +37,9 @@ local function onUpdateGCD(self,elapsed)
 		end
 		
 		timeElapsed = 0
-		local width = ns:getPositionByTime(start+duration - GetTime())
-		if duration > 0 then
+		local remaining = start+duration - GetTime()
+		local width = ns:getPositionByTime(remaining)
+		if remaining > 0 then
 			--print(width)
 			t.gcd:SetWidth(width)		
 		else
