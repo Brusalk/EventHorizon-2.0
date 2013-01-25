@@ -76,6 +76,7 @@ local function addCooldown(spellbar, cooldownID, start, duration)
 			timeElapsed = 0
 			if timeRemaining > past then -- If the duration's more than the past time. (-3 by default)
 				texture:SetWidth(ns:getPositionByTime(timeRemaining))
+				print(texture:GetWidth())
 			else
 				ns:removeSpellUpdate(spellbar, "cooldown"..newEndTime)
 				ns:freeTempTexture(texture)

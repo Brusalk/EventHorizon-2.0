@@ -62,7 +62,12 @@ local textures = { -- Table used for tempTexture system
 	free = {},
 	used = {},
 }
+local statusbars = {
+	free = {},
+	used = {},
+}
 ns.textures = textures
+ns.statusbars = statusbars
 local DB = EventHorizonSavedVars
 local DBPC = EventHorizonSavedVarsPerCharacter
 local addonInit = true -- true while addon is still being initialized. All functionality is postponed until addon is fully setup. Addon is setup when addonInit = nil
@@ -183,6 +188,7 @@ ns.validatorFunctions.defaults.addColor = function(input)
 		for i,num in ipairs(input) do
 			if type(num)~= "number" or num > 1 or num < 0 then return false end
 		end
+		return true
 	end
 	return false	
 end
@@ -297,7 +303,9 @@ function ns:registerModuleEvent(moduleKey, handler, ...)
 		ns.frame:SetScript("OnEvent", function(self, event, ...)
 			if ns.events[event] then
 				for moduleKey,handler in pairs(ns.events[event]) do
-					handler(event, ...)
+					if moduleKey == "core" or ns.modules[moduleKey].active then
+						handler(event, ...)
+					end
 				end
 			end
 		end)
@@ -448,12 +456,12 @@ end
 ns:addError("getColor", {inputs = "color information must be a table of {r,g,b,a} or {true, burn%, alpha} for class colored"})
 function ns:getColor(key)
 	--print(key, " : ", ns.colors[key])
-	if not key or not ns.colors[key] or type(ns.colors[key]) ~= "table" or #ns.colors[key]<3 or #ns.colors[key]>4 then ns:error("getColor", "inputs") return end
+	if not key then ns:error("getColor", "inputs") return end
 	local classColor = RAID_CLASS_COLORS[select(2,UnitClass("player"))]
-	if ns.colors[key][1] == true then -- Class coloring/burn/alpha
+	if ns.colors[key] and ns.colors[key][1] == true then -- Class coloring/burn/alpha
 		local burn = ns.colors[key][2]
 		return {classColor.r * burn, classColor.g * burn, classColor.b * burn, ns.colors[key][3]}
-	elseif type(ns.colors[key][1]) == "number" then
+	elseif ns.colors[key] and type(ns.colors[key][1]) == "number" then
 		return ns.colors[key]
 	else
 		return {1,1,1,0.5} -- Arbitrary Default is Arbitrary
@@ -556,7 +564,7 @@ function ns:getSavedVariablePerCharacter(moduleKey)
 end
 
 
--- [[ Temp Textures ]] --
+-- [[ Temp Textures/Status Bars ]] --
 
 function ns:getTempTexture(parent)
 	local numFree, numUsed = #textures.free, #textures.used
@@ -581,6 +589,8 @@ end
 
 function ns:freeTempTexture(texture)
 	
+	if texture == nil then return end
+	
 	local found
 	
 	for i,v in ipairs(textures.used) do
@@ -598,6 +608,47 @@ function ns:freeTempTexture(texture)
 end
 
 
+function ns:getTempStatusBar(parent)
+	local numFree, numUsed = #statusbars.free, #statusbars.used
+	local statusbar
+	if statusbars.free[numFree] then -- Check if we have a free statusbar to use. (Pull from the end to make it easy)
+		statusbar = statusbars.free[numFree]
+		statusbars.free[numFree] = nil
+		table.insert(statusbars.used, statusbar)
+		print("Gave premade statusbars ", statusbar.name)
+	else -- We have to make a new statusbar
+		statusbar = CreateFrame("StatusBar")
+		statusbar.name = "EventHorizon_statusbar"..(numFree + numUsed + 1)
+		table.insert(statusbars.used, statusbar)
+		print("Made new statusbar ", statusbar.name)
+	end
+	
+	statusbar:Hide()
+	statusbar:SetParent(parent or ns.frame)
+	
+	return statusbar	
+end
+
+function ns:freeTempStatusBar(statusbar)
+	
+	if statusbar == nil then return end
+	
+	local found
+	
+	for i,v in ipairs(statusbars.used) do
+		if v == statusbar then
+			table.insert(statusbars.free, statusbar) -- Free the statusbar up
+			table.remove(statusbars.used, i)
+			print("Freed up statusbar ", statusbar.name)
+			statusbar:Hide() -- Hide it.
+			statusbar:ClearAllPoints() -- Unset it's location settings
+			return
+		end
+	end
+	
+	print("Attempting to remove a non used statusbar?")	
+end
+
 -- [[ Spellbar Functions ]] -- 
 
 -- Add hooked onto the spellbar a bar with given options that moves left with duration duration. If ticks is set to a number, that's the time between ticks hasted and it'll add ticks on that interval.
@@ -605,101 +656,180 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a timed bar. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a timed bar while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
 	if not duration or type(duration)~= "number" or not layer or not barKey then ns:error("Module " .. moduleKey .. ": Invalid inputs to function addTimedBarSegment(moduleKey, spellbar, duration, layout, blendMode, color, [texture], [ticks]). Please check the API for valid values") return end
-	--[[
+
 	local layout = ns:getLayout(barKey)
 	local blendMode = ns:getBlendMode(barKey)
 	local color = ns:getColor(barKey)
 	local textureFile = ns:getConfig(barKey)
-	
+	local tickLayout
+	local tickBlendMode
+	local tickColor
 	if tickKey then
-		local tickLayout = ns:getLayout(tickKey)
-		local tickBlendMode = ns:getBlendMode(tickKey)
-		local tickColor = ns:getColor(tickKey)
+		tickLayout = ns:getLayout(tickKey)
+		tickBlendMode = ns:getBlendMode(tickKey)
+		tickColor = ns:getColor(tickKey)
 	end
+	
 	
 	local bar = {
 		id = GetTime(),
 		spellbar = spellbar,
 		duration = duration,
 		elapsed = 0,
+		currentTickElapsed = -ns.config.past,
 		barKey = barKey,
 		tickKey = tickKey,
 		tickTime = tickTime,
+		maxTickWidth = 0,
 		segments = {} -- 1 is the next tick segment to happen. n is the last tick segment to happen.
 	}
-	
-	local past, future, width, anchor, nowLine = ns.config.past, ns.config.future, spellbar:GetWidth(), ns.barAnchor, spellbar.nowLine
-	
-	local ticks = type(tickTime)=="number" and round(duration/tickTime) or 1
-	for i=1,ticks do
-		bar.segments[i] = ns:getTempTexture(bar)
-		local texture = bar.segments[i]
-		texture:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)-- texture init setup
-		if i > 1 then
-			texture:SetPoint("LEFT", bar.segments[i-1], "RIGHT")
-		else
-			texture:SetPoint("LEFT", ns.barAnchor, "LEFT", ns:getPositionByTime(0))
-		end
-		texture:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
-		texture:SetDrawLayer("BORDER", layer)
-		if textureFile and type(textureFile)=="string" then
-			texture:SetTexture(textureFile)
-			texture:SetVertexColor(color)
-		else
-			texture:SetTexture(unpack(color))
-		end
-		texture:SetBlendMode(blendMode)
-		texture:SetWidth(duration/ticks) -- not corret
-		texture.maxWidth = duration/ticks
-
 		
-		if ticks > 1 then -- we have to display ticks
-			bar.segments[i].tick = ns:getTempTexture(bar.segments[i])
-			local tick = bar.segments[i].tick
-			local tickTexture = bar.segments[i]
-			tickTexture:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*tickLayout.top)-- texture init setup
-			tickTexture:SetPoint("RIGHT", bar.segments[i], "RIGHT")
-			tickTexture:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-tickLayout.bottom))
-			tickTexture:SetDrawLayer("BORDER", layer)
-			tickTexture:SetTexture(unpack(tickColor))
-			tickTexture:SetBlendMode(tickBlendMode)
-			tickTexture:SetWidth(1)
+	ns.test = bar -- TEMP
+	
+	local past, future, width, barHeight, anchor, nowLine, left, right = ns.config.past, ns.config.future, spellbar:GetWidth(), spellbar:GetHeight(), ns.barAnchor, spellbar.nowLine, ns.barAnchor:GetLeft(), spellbar:GetRight()
+	
+	local ticksPastRight
+	local lastVisible -- this is the tick that is the farthest right. Once the width of this tick segment is > bar.maxTickWidth, the +1th tick is shown
+	local firstVisible = 0 -- this is the tick the update will move to the left. This is incremented every time the current segments goes off the left side.
+
+	
+	
+	local pixelsPerSecond = width/(future-past)
+	local secondsPerPixel = (future-past)/width
+	
+	bar.maxTickWidth = type(tickTime)=="number" and tickTime*pixelsPerSecond or duration*pixelsPerSecond -- The number of pixels wide a single tick is. 
+
+	local ticks = type(tickTime)=="number" and round(duration/tickTime) or 1 -- # of ticks
+	local tickDuration = type(tickTime)=="number" and tickTime or duration -- amount of time in seconds a tick takes (or if no ticks total duration)
+	
+	
+	-- First "tick" bar. This is a fake tick bar that makes the logic for moving the bars significantly simpler.
+	bar.segments[0] = ns:getTempStatusBar(spellbar)
+	bar.segments[0]:SetPoint("TOPLEFT", ns.barAnchor, "TOPLEFT")
+	bar.segments[0]:SetPoint("BOTTOMRIGHT", ns.nowLine, "BOTTOMLEFT")
+	bar.segments[0]:SetMinMaxValues(0, -past)
+	bar.segments[0].tex = ns:getTempTexture(bar.segments[i])
+	bar.segments[0].tex:SetAllPoints(bar.segments[0])
+	bar.segments[0].tex:SetTexture(0,0,0)
+	bar.segments[0].tex:SetAlpha(0)
+	bar.segments[0].tex:Show()
+	bar.segments[0]:SetStatusBarTexture(bar.segments[0].tex)
+	bar.segments[0]:SetStatusBarColor(0,0,0,0)
+	bar.segments[0]:SetValue(3)
+	bar.segments[0]:Show()
+
+	for i=1,ticks do
+
+
+		bar.segments[i] = ns:getTempStatusBar(spellbar)
+		bar.segments[i]:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)
+		bar.segments[i]:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
+		bar.segments[i]:SetPoint("LEFT", bar.segments[i-1].tex, "RIGHT")
+		bar.segments[i]:SetWidth(bar.maxTickWidth)
+		bar.segments[i]:SetMinMaxValues(0, tickDuration)
+		bar.segments[i].tex = ns:getTempTexture(bar.segments[i])
+		bar.segments[i].tex:SetAllPoints(bar.segments[i])
+		bar.segments[i].tex:SetTexture(textureFile or ns:getConfig("texture"))
+		bar.segments[i].tex:SetVertexColor(unpack(color))
+		bar.segments[i].tex:SetBlendMode(blendMode)
+		bar.segments[i].tex:Show()
+		bar.segments[i]:SetStatusBarTexture(bar.segments[i].tex)
+		bar.segments[i]:SetStatusBarColor(unpack(color))
+		bar.segments[i]:SetValue(tickDuration) -- Full width
+		bar.segments[i]:Show()
+	
+		if not ticksPastRight and bar.segments[i]:GetRight() > right then -- This tick is off the right side of the frame. Need to set it's right and hide successive ticks, and set lastVisible to i
+			lastVisible = i
+			ticksPastRight = true
 		end
+
+		if tickKey then -- We actually have ticks we need to show tickSegs for
+			
+			bar.segments[i].tick = ns:getTempTexture(bar.segments[i])
+			bar.segments[i].tick:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)
+			bar.segments[i].tick:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
+			bar.segments[i].tick:SetPoint("RIGHT", bar.segments[i].tex, "RIGHT")
+			bar.segments[i].tick:SetWidth(1)
+			bar.segments[i].tick:SetTexture(unpack(tickColor))
+			
+			bar.segments[i].tick:SetBlendMode(tickBlendMode)		
+			
+			if not ticksPastRight then
+				bar.segments[i].tick:Show()
+			end
+		
+		end
+	
+		if ticksPastRight then 
+			bar.segments[i]:SetPoint("RIGHT", spellbar, "RIGHT")
+			
+			--[[if i > lastVisible then -- We need to hide the segments past the right side
+				bar.segments[i]:Hide()
+			end
+			--]]	
+		end
+	
 	end -- done setting up the textures with the right settings. Now to do the update
 	
-	local leftEdge, rightEdge = ns.barAnchor:GetLeft(), spellbar:GetRight()
 
-	ns:addSpellUpdate(spellbar, bar.id, function(self,elapsed,...)
-		bar.duration = bar.duration - elapsed
-		local toRemove = {}
 	
-		for i,segment in ipairs(bar.segments) do
-			local segmentLeft = segment:GetLeft() - elapsed*(width/(past+future))
-			segment:SetPoint("LEFT", ns.barAnchor, "LEFT", segmentLeft >= leftEdge and segmentLeft-leftEdge or 0)
-			if segmentLeft <= leftEdge then
-				local segmentWidth = segment:GetWidth() - elapsed*(width/(past+future))
-				if segmentWidth > 0 then
-					segment:SetWidth(segmentWidth)
+	local function moveTimedBar(self, elapsed, ...)
+		bar.elapsed = bar.elapsed + elapsed
+		if bar.elapsed >= secondsPerPixel then --Limit the hard stuff to only when we have to move at least 1 pixel. 
+			bar.currentTickElapsed = bar.currentTickElapsed - elapsed
+			bar.elapsed = bar.elapsed - elapsed
+			
+			
+			--print(bar.currentTickElapsed)
+			
+			
+			--Move firstVisible left
+			--Check right of firstVisible, if < left, hide firstVisible, increment it, free texture. 
+			--Check width of lastVisible, if > maxTickWidth, show tick texture, increment it, reset points and set static width. 
+			
+
+			
+			
+			if bar.currentTickElapsed <= 0 then
+				ns:freeTempTexture(bar.segments[firstVisible].tick) -- if there's no actual texture here (nil) then freeTempTexture just ignores it
+				ns:freeTempTexture(bar.segments[firstVisible].tex)
+				ns:freeTempStatusBar(bar.segments[firstVisible])
+				
+				
+				firstVisible = firstVisible + 1
+				
+				if firstVisible > ticks then -- we have no more ticks. hold the presses.
+					ns:removeSpellUpdate(spellbar, bar.id) -- we've already freed everything we need to free
 				else
-					table.insert(toRemove, i)
+					bar.segments[firstVisible]:SetPoint("LEFT", ns.barAnchor, "LEFT") -- Set the new next tick to be anchored to the left
+					bar.currentTickElapsed = bar.tickTime or bar.duration -- reset the current tick elapsed to the tick time.
 				end
 			else
-				
-				if segment:GetRight() > rightEdge then
-				
+				bar.segments[firstVisible]:SetValue(bar.currentTickElapsed)
+				--print("curTime:", bar.currentTickElapsed)
+			end
 			
-		end	
-	
-		for k,index in ipairs(toRemove) do
-			ns:freeTempTexture(bar.segments[index]) -- Hides it for us
-			table.remove(bar.segments,index)
+			--print(lastVisible, bar.segments[lastVisible] or "No Widget")
+			if lastVisible and lastVisible <= ticks and bar.segments[lastVisible]:GetWidth() > bar.maxTickWidth+0.5 then -- we need to do some stuff. 0.5 accounts for any odd rounding issues due to half-pixels
+				if bar.segments[lastVisible].tick then bar.segments[lastVisible].tick:Show() end
+				bar.segments[lastVisible]:ClearAllPoints()
+				bar.segments[lastVisible]:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)-- texture init setup
+				bar.segments[lastVisible]:SetPoint("LEFT", bar.segments[lastVisible-1], "RIGHT")
+				bar.segments[lastVisible]:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
+				bar.segments[lastVisible]:SetWidth(bar.maxTickWidth)
+				lastVisible = lastVisible+1
+				
+				-- The new last visible is already shown and will just pulled left. Don't need to do anything
+				
+			end		
+			
+			
 		end
-			
 	
-	end)
+	end
 	
-	
-	--]]
+	ns:addSpellUpdate(spellbar, bar.id, moveTimedBar)
+
 	
 	
 	
@@ -876,6 +1006,18 @@ function ns:updateSpellbarSettings(spellbar)
 	spellbar.bar.texture:SetVertexColor(unpack(ns:getColor("barBackground")))
 	spellbar.bar.texture:SetBlendMode(ns.blendModes.barBackground)
 	
+	spellbar.bar:SetPoint("TOPLEFT", spellbar, "TOPLEFT", self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0, 0) -- inheirits width settings natually from width of spellbar and icon
+	
+	
+	spellbar.nowLine:SetBlendMode(ns:getBlendMode("nowLine"))
+	spellbar.nowLine:SetDrawLayer("BORDER", 5) -- Put it over everything
+	spellbar.nowLine:SetPoint("TOP", spellbar, "TOPLEFT", 0, -spellbar:GetHeight()*ns:getLayout("nowLine").top)
+	spellbar.nowLine:SetPoint("BOTTOM", spellbar, "BOTTOMLEFT", 0, spellbar:GetHeight()*(1-ns:getLayout("nowLine").bottom))
+	spellbar.nowLine:SetPoint("LEFT", ns.nowLine, "LEFT")
+	spellbar.nowLine:SetWidth(1)
+	spellbar.nowLine:SetTexture(unpack(ns:getColor("nowLine")))
+	spellbar.nowLine:Show()
+	
 	for moduleKey, moduleHandler in pairs(ns.modules.spellbarHooks.onSettingsUpdate) do 
 		if ns.modules[moduleKey].active then
 			moduleHandler(spellbar)
@@ -946,10 +1088,9 @@ end
 -- [[ EventHorizon Functions ]] --
 
 -- checkRequirements: 
---  Sets all frames which meet current active requirements active. 
+--  Puts all frames which meet active requirements into the active table. 
 function ns:checkRequirements()
 	table.wipe(ns.spellbars.active)
-	--ns.validatorFunctions.addSpellbarRequirement[optionsKey]
 	for i,spellbar in ipairs(ns.spellbars.index) do
 		local active = true
 		debug("Start checkRequirements for spellbar index", spellbar.index)
@@ -1007,6 +1148,8 @@ function ns:updateSettings()
 	ns.barAnchor:SetPoint("TOPLEFT", ns.frame, "TOPLEFT", ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
 	ns.barAnchor:SetPoint("BOTTOMLEFT", ns.frame, "BOTTOMLEFT",  ns.config.padding + (self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0), 0)
 
+	ns.nowLine:SetPoint("TOPLEFT", ns.barAnchor, "TOPLEFT", ns:getPositionByTime(0)-1,0)
+	ns.nowLine:SetPoint("BOTTOMLEFT", ns.barAnchor, "BOTTOMLEFT", ns:getPositionByTime(0)-1,0)
 	
 	local prevSpellbar
 	barSpacing = ns.config.barSpacing
@@ -1026,15 +1169,6 @@ function ns:updateSettings()
 		
 		ns:updateSpellbarIcon(spellbar, ns:getIconForSpellbar(spellbar), 0) 
 		-- Default icon is the first cast, then the first debuff, then the first cooldown, then the first playerbuff. If it's not one of these then what the fuck is this spellbar for :3
-		
-		spellbar.bar:SetPoint("TOPLEFT", spellbar, "TOPLEFT", self.config.icons and (self.config.iconWidth < 1 and (self.config.width-2*self.config.padding)*self.config.iconWidth or self.config.iconWidth)+1 or 0, 0) -- inheirits width settings natually from width of spellbar and icon
-		spellbar.nowLine:SetTexture(unpack(ns:getColor("nowLine")))
-		spellbar.nowLine:SetBlendMode(ns:getBlendMode("nowLine"))
-		spellbar.nowLine:SetDrawLayer("BORDER", 5) -- Put it over everything
-		spellbar.nowLine:SetPoint("TOP", spellbar, "TOPLEFT", 0, -spellbar:GetHeight()*ns:getLayout("nowLine").top)
-		spellbar.nowLine:SetPoint("BOTTOM", spellbar, "BOTTOMLEFT", 0, spellbar:GetHeight()*(1-ns:getLayout("nowLine").bottom))
-		spellbar.nowLine:SetPoint("LEFT", ns.barAnchor, "LEFT", ns:getPositionByTime(0), 0)
-		spellbar.nowLine:Show()
 		
 		
 		prevSpellbar = spellbar
@@ -1107,9 +1241,12 @@ ns:registerModuleEvent("core", function(...)
 	)--]]
 
 	ns.barAnchor:SetWidth(1)
+	ns.nowLine:SetWidth(1)
+	
 	ns:applySettings() -- Since modules load after EventHorizon loads they just do all their stuff after we go on with our business.
 	
 	addonInit = nil
+	ns:unregisterModuleEvent("core", "PLAYER_LOGIN")
 end,
 "PLAYER_LOGIN")
 

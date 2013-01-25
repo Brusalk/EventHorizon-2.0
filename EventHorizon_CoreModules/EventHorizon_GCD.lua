@@ -13,8 +13,10 @@ local moduleKey = "EventHorizon_GCD" -- Name of the game
 
 -- [[ GCD Locals ]] --
 local lastGCDTime = 0
-local t = {}
-local gcdTextures = {}
+local t = {
+	gcdTextures = {}, -- expose our functionality to the EH namespace. 
+}
+local gcdTextures = t.gcdTextures
 
 
 t.gcd = CreateFrame("frame") -- GCD Anchor Frame
@@ -30,7 +32,7 @@ local GetTime = GetTime
 -- [[ Helper Functions ]] --
 local function onUpdateGCD(self,elapsed)
 	timeElapsed = timeElapsed + elapsed
-	if timeElapsed >= secondsPerPixel then -- Taro: Limit the hard stuff to only when we have to move at least 1 pixel. 
+	if timeElapsed >= secondsPerPixel then --Limit the hard stuff to only when we have to move at least 1 pixel. 
 		timeElapsed = timeElapsed - elapsed -- Taro: More accurate than setting to 0, ensures consistent update
 		
 		if not(t.gcd.active) then
@@ -167,7 +169,7 @@ local function init()
 	-- Hook into spellbar creation
 	ns:hookSpellbarCreation(moduleKey, function(spellbar)
 		print("Created GCD Stuff")
-		gcdTextures[spellbar] = t.gcd:CreateTexture() -- Make a new GCD texture for this spellbar.
+		gcdTextures[spellbar] = t.gcd:CreateTexture() -- Make a new GCD texture for this spellbar. Do it this way to avoid polluting the spellbar's table.
 		updateSettings(spellbar)
 		gcdTextures[spellbar]:SetDrawLayer("BORDER", 5) -- Put it over everything
 	end)
