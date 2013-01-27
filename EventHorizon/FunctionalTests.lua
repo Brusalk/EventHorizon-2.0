@@ -24,6 +24,7 @@ ns.Testing["addTimedBar"] = {
 			print("Actually Fin: ", GetTime())
 			print("Time Difference: ", ns.Testing["addTimedBar"].one.timeDone - ns.config.past - GetTime())
 		end,
+		running = false,
 		result = true,
 	},
 }
@@ -31,6 +32,20 @@ ns.Testing["addTimedBar"] = {
 
 function ns:RunTests(testKey,...)
 	for i, testTable in pairs(ns.Testing[testKey]) do
+		testTable.running = true
 		testTable.test(...)
 	end
 end
+
+function ns:FinishTest(testKey, testIndex)
+	if testKey and testIndex and ns.Testing[testKey] and ns.Testing[testKey][testIndex].done and ns.Testing[testKey][testIndex].running then
+		ns.Testing[testKey][testIndex].done()
+	end
+end
+
+
+
+
+
+
+

@@ -560,91 +560,52 @@ function ns:getSavedVariablePerCharacter(moduleKey)
 end
 
 
--- [[ Temp Textures/Status Bars ]] --
-local numTexs = 0
+
 function ns:getTempTexture(parent)
-	local texture
-	
-	for tex, used in pairs(textures) do
-		if not texture and not used then
-			texture = tex
-			textures[texture] = true
-			--print("Gave premade texture ", texture.name)
-			break
-		end
+	local texture = next(textures)
+	if texture then
+		textures[texture] = nil
+		texture:SetParent(parent or UIParent)
+	else
+		texture = (parent or UIParent):CreateTexture()
 	end
-	
-	if not texture then -- need to make one
-		texture = ns.frame:CreateTexture("EventHorizon_Texture"..(numTexs))
-		texture.name = "EventHorizon_Texture"..(numTexs)
-		textures[texture] = true
-		--print("Made new texture ", texture.name)
-		numTexs = numTexs + 1
-	end
-	
+	texture:Hide()
+	return texture
+end
+function ns:freeTempTexture(texture)
+
+	if not texture then return end
 	
 	texture:Hide()
-	texture:SetParent(parent or ns.frame)
-	
-	return texture	
+	texture:ClearAllPoints()
+	texture:SetParent(UIParent)
+	texture:SetTexture(nil)
+	textures[texture] = true
 end
 
-function ns:freeTempTexture(texture)
-	
-	if texture == nil then return end
 
-	if textures[texture] then -- in use
-		textures[texture] = false -- Free the texture up
-		--print("Freed up texture ", texture.name)
-		texture:Hide() -- Hide it.
-		texture:ClearAllPoints() -- Unset it's location settings
-		return
-	end
-	
-	print("Attempting to remove a non used texture?")	
-end
 
-local numstatus = 0
 function ns:getTempStatusBar(parent)
-	local statusbar
-	
-	for status, used in pairs(statusbars) do
-		if not statusbar and not used then
-			statusbar = status
-			statusbars[statusbar] = true
-			--print("Gave premade statusbar ", statusbar.name)
-			break
-		end
+	local statusbar = next(statusbars)
+	if statusbar then
+		statusbars[statusbar] = nil
+		statusbar:SetParent(parent or UIParent)
+		return statusbar
+	else
+		return CreateFrame("StatusBar", nil, parent)
 	end
-	
-	if not statusbar then -- need to make one
-		statusbar = CreateFrame("Statusbar", "EventHorizon_StatusBar"..(numstatus))
-		statusbar.name = "EventHorizon_StatusBar"..(numstatus)
-		statusbars[statusbar] = true
-		--print("Made new statusbar ", statusbar.name)
-	end
-	
-	numstatus = numstatus + 1
-	statusbar:Hide()
-	statusbar:SetParent(parent or ns.frame)
-	
-	return statusbar	
 end
-
 function ns:freeTempStatusBar(statusbar)
-	
-	if statusbar == nil then return end
 
-	if statusbars[statusbar] then -- in use
-		statusbars[statusbar] = false -- Free the statusbar up
-		--print("Freed up statusbar ", statusbar.name)
-		statusbar:Hide() -- Hide it.
-		statusbar:ClearAllPoints() -- Unset it's location settings
-		return
-	end
+	if not statusbar then return end
 	
-	print("Attempting to remove a non used statusbar?")	
+	statusbar:Hide()
+	statusbar:ClearAllPoints()
+	statusbar:SetParent(UIParent)
+	statusbar:SetStatusBarTexture(nil)
+	statusbars[statusbar] = true
 end
+
 
 
 -- [[ Spellbar Functions ]] -- 
@@ -654,14 +615,17 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a timed bar. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a timed bar while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
 	if not duration or type(duration)~= "number" or not layer or not barKey then ns:error("Module " .. moduleKey .. ": Invalid inputs to function addTimedBarSegment(moduleKey, spellbar, duration, layout, blendMode, color, [texture], [ticks]). Please check the API for valid values") return end
-
+	if tickTime == 0 then ns:error("Module " .. moduleKey .. ": Cannot provide 0 for argument tickTime.") return end
+	
 	local layout = ns:getLayout(barKey)
 	local blendMode = ns:getBlendMode(barKey)
 	local color = ns:getColor(barKey)
 	local textureFile = ns:getConfig(barKey)
+	
 	local tickLayout
 	local tickBlendMode
 	local tickColor
+	
 	if tickKey then
 		tickLayout = ns:getLayout(tickKey)
 		tickBlendMode = ns:getBlendMode(tickKey)
@@ -690,12 +654,10 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	local lastVisible -- this is the tick that is the farthest right. Once the width of this tick segment is > bar.maxTickWidth, the +1th tick is shown
 	local firstVisible = 0 -- this is the tick the update will move to the left. This is incremented every time the current segments goes off the left side.
 
-	
-	
-	local pixelsPerSecond = width/(future-past)
 	local secondsPerPixel = (future-past)/width
 	
-	bar.maxTickWidth = type(tickTime)=="number" and tickTime*pixelsPerSecond or duration*pixelsPerSecond -- The number of pixels wide a single tick is. 
+	bar.maxTickWidth = ns:getPositionByNow(type(tickTime)=="number" and tickTime or duration) -- The number of pixels wide a single tick is. 
+	
 
 	local ticks = type(tickTime)=="number" and round(duration/tickTime) or 1 -- # of ticks
 	local tickDuration = type(tickTime)=="number" and tickTime or duration -- amount of time in seconds a tick takes (or if no ticks total duration)
@@ -704,7 +666,6 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	-- First "tick" bar. This is a fake tick bar that makes the logic for moving the bars significantly simpler.
 	bar.segments[0] = ns:getTempStatusBar(spellbar)
 	bar.segments[0]:SetPoint("TOPLEFT", ns.barAnchor, "TOPLEFT")
-	--bar.segments[0]:SetWidth(1)
 	bar.segments[0]:SetPoint("BOTTOMRIGHT", ns.nowLine, "BOTTOMLEFT")
 	bar.segments[0]:SetMinMaxValues(0, -past)
 	bar.segments[0].tex = ns:getTempTexture(bar.segments[i])
@@ -770,7 +731,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	
 	end -- done setting up the textures with the right settings. Now to do the update
 	
-
+	bar.expectedTickEnd = GetTime() - past -- Used to offset the next ticks' duration to account for time it takes to free textures and the like. (Allows only 0.002seconds of error of over 240 seconds of ticking)
 	
 	local function moveTimedBar(self, elapsed, ...)
 		bar.elapsed = bar.elapsed + elapsed
@@ -790,19 +751,22 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 			
 			
 			if bar.currentTickElapsed <= 0 then
-				ns:freeTempTexture(bar.segments[firstVisible].tick) -- if there's no actual texture here (nil) then freeTempTexture just ignores it
-				ns:freeTempTexture(bar.segments[firstVisible].tex)
-				ns:freeTempStatusBar(bar.segments[firstVisible])
+				bar.segments[firstVisible].tick = ns:freeTempTexture(bar.segments[firstVisible].tick) -- if there's no actual texture here (nil) then freeTempTexture just ignores it
+				bar.segments[firstVisible].tex = ns:freeTempTexture(bar.segments[firstVisible].tex)
+				bar.segments[firstVisible] = ns:freeTempStatusBar(bar.segments[firstVisible])
 				
 				
 				firstVisible = firstVisible + 1
 				
 				if firstVisible > ticks then -- we have no more ticks. hold the presses.
 					ns:removeSpellUpdate(spellbar, bar.id) -- we've already freed everything we need to free
-					ns.Testing["addTimedBar"].one.done()
+					ns:FinishTest("addTimedBar", "one")
 				else
 					bar.segments[firstVisible]:SetPoint("LEFT", ns.barAnchor, "LEFT") -- Set the new next tick to be anchored to the left
-					bar.currentTickElapsed = bar.tickTime or bar.duration -- reset the current tick elapsed to the tick time.
+					bar.currentTickElapsed = tickDuration + (bar.expectedTickEnd - GetTime()) -- reset the current tick elapsed to the tick time. Offset by how far off our expected tick end is
+					--print("Difference between expected and actual end:", bar.expectedTickEnd - GetTime())
+					--print("Adjusting by difference from ", tickDuration, "to", bar.currentTickElapsed)
+					bar.expectedTickEnd = GetTime() + bar.currentTickElapsed -- set our new expectedTickEnd 
 				end
 			else
 				bar.segments[firstVisible]:SetValue(bar.currentTickElapsed)
@@ -818,7 +782,9 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 				bar.segments[lastVisible]:SetPoint("LEFT", bar.segments[lastVisible-1].tex, "RIGHT")
 				bar.segments[lastVisible]:SetWidth(bar.maxTickWidth)
 				lastVisible = lastVisible+1
-				bar.segments[lastVisible]:SetPoint("LEFT", bar.segments[lastVisible-1].tex, "RIGHT")
+				if lastVisible <= ticks then
+					bar.segments[lastVisible]:SetPoint("LEFT", bar.segments[lastVisible-1].tex, "RIGHT")
+				end
 				-- The new last visible is already shown and will just pulled left. Don't need to do anything
 				
 			end		
