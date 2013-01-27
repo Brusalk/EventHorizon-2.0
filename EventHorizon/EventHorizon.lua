@@ -58,13 +58,9 @@ ns.validatorFunctions = { -- used for the options menu and validating user input
 
 local errors = {} -- Table containing verbose error messages (in english)
 local L = ns.localization -- Metatable for localization
-local textures = { -- Table used for tempTexture system
-	free = {},
-	used = {},
+local textures = { -- Table used for tempTexture system. Index is texture. Value is true if in use
 }
 local statusbars = {
-	free = {},
-	used = {},
 }
 ns.textures = textures
 ns.statusbars = statusbars
@@ -565,21 +561,27 @@ end
 
 
 -- [[ Temp Textures/Status Bars ]] --
-
+local numTexs = 0
 function ns:getTempTexture(parent)
-	local numFree, numUsed = #textures.free, #textures.used
 	local texture
-		if textures.free[numFree] then -- Check if we have a free texture to use. (Pull from the end to make it easy)
-		texture = textures.free[numFree]
-		textures.free[numFree] = nil
-		table.insert(textures.used, texture)
-		print("Gave premade texture ", texture.name)
-	else -- We have to make a new texture
-		texture = ns.frame:CreateTexture("EventHorizon_Texture"..(numFree + numUsed + 1))
-		texture.name = "EventHorizon_Texture"..(numFree + numUsed + 1)
-		table.insert(textures.used, texture)
-		print("Made new texture ", texture.name)
+	
+	for tex, used in pairs(textures) do
+		if not texture and not used then
+			texture = tex
+			textures[texture] = true
+			--print("Gave premade texture ", texture.name)
+			break
+		end
 	end
+	
+	if not texture then -- need to make one
+		texture = ns.frame:CreateTexture("EventHorizon_Texture"..(numTexs))
+		texture.name = "EventHorizon_Texture"..(numTexs)
+		textures[texture] = true
+		--print("Made new texture ", texture.name)
+		numTexs = numTexs + 1
+	end
+	
 	
 	texture:Hide()
 	texture:SetParent(parent or ns.frame)
@@ -590,39 +592,39 @@ end
 function ns:freeTempTexture(texture)
 	
 	if texture == nil then return end
-	
-	local found
-	
-	for i,v in ipairs(textures.used) do
-		if v == texture then
-			table.insert(textures.free, texture) -- Free the texture up
-			table.remove(textures.used, i)
-			print("Freed up texture ", texture.name)
-			texture:Hide() -- Hide it.
-			texture:ClearAllPoints() -- Unset it's location settings
-			return
-		end
+
+	if textures[texture] then -- in use
+		textures[texture] = false -- Free the texture up
+		--print("Freed up texture ", texture.name)
+		texture:Hide() -- Hide it.
+		texture:ClearAllPoints() -- Unset it's location settings
+		return
 	end
 	
 	print("Attempting to remove a non used texture?")	
 end
 
-
+local numstatus = 0
 function ns:getTempStatusBar(parent)
-	local numFree, numUsed = #statusbars.free, #statusbars.used
 	local statusbar
-	if statusbars.free[numFree] then -- Check if we have a free statusbar to use. (Pull from the end to make it easy)
-		statusbar = statusbars.free[numFree]
-		statusbars.free[numFree] = nil
-		table.insert(statusbars.used, statusbar)
-		print("Gave premade statusbars ", statusbar.name)
-	else -- We have to make a new statusbar
-		statusbar = CreateFrame("StatusBar")
-		statusbar.name = "EventHorizon_statusbar"..(numFree + numUsed + 1)
-		table.insert(statusbars.used, statusbar)
-		print("Made new statusbar ", statusbar.name)
+	
+	for status, used in pairs(statusbars) do
+		if not statusbar and not used then
+			statusbar = status
+			statusbars[statusbar] = true
+			--print("Gave premade statusbar ", statusbar.name)
+			break
+		end
 	end
 	
+	if not statusbar then -- need to make one
+		statusbar = CreateFrame("Statusbar", "EventHorizon_StatusBar"..(numstatus))
+		statusbar.name = "EventHorizon_StatusBar"..(numstatus)
+		statusbars[statusbar] = true
+		--print("Made new statusbar ", statusbar.name)
+	end
+	
+	numstatus = numstatus + 1
 	statusbar:Hide()
 	statusbar:SetParent(parent or ns.frame)
 	
@@ -632,22 +634,18 @@ end
 function ns:freeTempStatusBar(statusbar)
 	
 	if statusbar == nil then return end
-	
-	local found
-	
-	for i,v in ipairs(statusbars.used) do
-		if v == statusbar then
-			table.insert(statusbars.free, statusbar) -- Free the statusbar up
-			table.remove(statusbars.used, i)
-			print("Freed up statusbar ", statusbar.name)
-			statusbar:Hide() -- Hide it.
-			statusbar:ClearAllPoints() -- Unset it's location settings
-			return
-		end
+
+	if statusbars[statusbar] then -- in use
+		statusbars[statusbar] = false -- Free the statusbar up
+		--print("Freed up statusbar ", statusbar.name)
+		statusbar:Hide() -- Hide it.
+		statusbar:ClearAllPoints() -- Unset it's location settings
+		return
 	end
 	
 	print("Attempting to remove a non used statusbar?")	
 end
+
 
 -- [[ Spellbar Functions ]] -- 
 
@@ -681,7 +679,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 		tickKey = tickKey,
 		tickTime = tickTime,
 		maxTickWidth = 0,
-		segments = {} -- 1 is the next tick segment to happen. n is the last tick segment to happen.
+		segments = {} -- [first visible] is the tick anchored to ns.barAnchor that is currently counting down. [last visible] is the tick that is currently the last shown
 	}
 		
 	ns.test = bar -- TEMP
@@ -706,6 +704,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	-- First "tick" bar. This is a fake tick bar that makes the logic for moving the bars significantly simpler.
 	bar.segments[0] = ns:getTempStatusBar(spellbar)
 	bar.segments[0]:SetPoint("TOPLEFT", ns.barAnchor, "TOPLEFT")
+	--bar.segments[0]:SetWidth(1)
 	bar.segments[0]:SetPoint("BOTTOMRIGHT", ns.nowLine, "BOTTOMLEFT")
 	bar.segments[0]:SetMinMaxValues(0, -past)
 	bar.segments[0].tex = ns:getTempTexture(bar.segments[i])
@@ -715,7 +714,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 	bar.segments[0].tex:Show()
 	bar.segments[0]:SetStatusBarTexture(bar.segments[0].tex)
 	bar.segments[0]:SetStatusBarColor(0,0,0,0)
-	bar.segments[0]:SetValue(3)
+	bar.segments[0]:SetValue(-past)
 	bar.segments[0]:Show()
 
 	for i=1,ticks do
@@ -800,6 +799,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 				
 				if firstVisible > ticks then -- we have no more ticks. hold the presses.
 					ns:removeSpellUpdate(spellbar, bar.id) -- we've already freed everything we need to free
+					ns.Testing["addTimedBar"].one.done()
 				else
 					bar.segments[firstVisible]:SetPoint("LEFT", ns.barAnchor, "LEFT") -- Set the new next tick to be anchored to the left
 					bar.currentTickElapsed = bar.tickTime or bar.duration -- reset the current tick elapsed to the tick time.
@@ -813,12 +813,12 @@ function ns:addTimedBar(moduleKey, spellbar, duration, layer, barKey, tickTime, 
 			if lastVisible and lastVisible <= ticks and bar.segments[lastVisible]:GetWidth() > bar.maxTickWidth+0.5 then -- we need to do some stuff. 0.5 accounts for any odd rounding issues due to half-pixels
 				if bar.segments[lastVisible].tick then bar.segments[lastVisible].tick:Show() end
 				bar.segments[lastVisible]:ClearAllPoints()
-				bar.segments[lastVisible]:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)-- texture init setup
-				bar.segments[lastVisible]:SetPoint("LEFT", bar.segments[lastVisible-1], "RIGHT")
+				bar.segments[lastVisible]:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)
 				bar.segments[lastVisible]:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
+				bar.segments[lastVisible]:SetPoint("LEFT", bar.segments[lastVisible-1].tex, "RIGHT")
 				bar.segments[lastVisible]:SetWidth(bar.maxTickWidth)
 				lastVisible = lastVisible+1
-				
+				bar.segments[lastVisible]:SetPoint("LEFT", bar.segments[lastVisible-1].tex, "RIGHT")
 				-- The new last visible is already shown and will just pulled left. Don't need to do anything
 				
 			end		

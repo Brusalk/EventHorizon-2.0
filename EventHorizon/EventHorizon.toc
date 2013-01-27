@@ -11,3 +11,5 @@ localizations.lua
 config.lua
 myconfig.lua
 EventHorizon.lua
+
+FunctionalTests.lua
