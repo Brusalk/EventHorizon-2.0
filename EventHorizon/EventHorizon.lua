@@ -560,13 +560,12 @@ function ns:getSavedVariablePerCharacter(moduleKey)
 end
 
 
-function ns:getTempTexture(parent)
+function ns:getTempTexture()
 	local texture = next(textures)
 	if texture then
 		textures[texture] = nil
-		texture:SetParent(parent or UIParent)
 	else
-		texture = (parent or UIParent):CreateTexture()
+		texture = ns.frame:CreateTexture()
 	end
 	texture:Hide()
 	return texture
@@ -574,33 +573,30 @@ end
 function ns:freeTempTexture(texture)
 
 	if not texture then return end
-
+	
 	texture:Hide()
 	texture:ClearAllPoints()
-	texture:SetParent(UIParent)
 	texture:SetTexture(nil)
 	textures[texture] = true
 end
 
 
 
-function ns:getTempStatusBar(parent)
+function ns:getTempStatusBar()
 	local statusbar = next(statusbars)
 	if statusbar then
 		statusbars[statusbar] = nil
-		statusbar:SetParent(parent or UIParent)
 		return statusbar
 	else
-		return CreateFrame("StatusBar", nil, parent)
+		return CreateFrame("StatusBar", nil, ns.frame)
 	end
 end
 function ns:freeTempStatusBar(statusbar)
 
 	if not statusbar then return end
-
+	
 	statusbar:Hide()
 	statusbar:ClearAllPoints()
-	statusbar:SetParent(UIParent)
 	statusbar:SetStatusBarTexture(nil)
 	statusbars[statusbar] = true
 end
@@ -760,7 +756,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey
 		end
 	end
 	
-	--ns:addSpellUpdate(spellbar, bar.id, moveTimedBar)
+	ns:addSpellUpdate(spellbar, bar.id, moveTimedBar)
 
 	return bar
 end
@@ -768,7 +764,7 @@ end
 function ns:updateTimedBar(moduleKey, spellbar, newEndTime, layer, barKey, newTickTime, tickKey)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a timed bar. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a timed bar while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
-	if not newEndTime or type(newEndTime)~= "number" or not layer or not barKey then ns:error("Module " .. moduleKey .. ": Invalid inputs to function addTimedBarSegment(moduleKey, spellbar, newEndTime, layout, blendMode, color, [texture], [ticks]). Please check the API for valid values") return end
+	if not newDEndTime or type(newEndTime)~= "number" or not layer or not barKey then ns:error("Module " .. moduleKey .. ": Invalid inputs to function addTimedBarSegment(moduleKey, spellbar, newEndTime, layout, blendMode, color, [texture], [ticks]). Please check the API for valid values") return end
 	if newTickTime and newTickTime == 0 then ns:error("Module " .. moduleKey .. ": Cannot provide 0 for argument newTickTime.") return end
 
 	
