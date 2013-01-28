@@ -560,6 +560,7 @@ function ns:getSavedVariablePerCharacter(moduleKey)
 end
 
 
+
 function ns:getTempTexture()
 	local texture = next(textures)
 	if texture then
@@ -568,14 +569,17 @@ function ns:getTempTexture()
 		texture = ns.frame:CreateTexture()
 	end
 	texture:Hide()
+	texture:SetParent(ns.frame)
 	return texture
 end
-function ns:freeTempTexture(texture)
 
-	if not texture then return end
+function ns:freeTempTexture(texture)
 	
+	if not texture then return end
+
 	texture:Hide()
 	texture:ClearAllPoints()
+	texture:SetParent(ns.frame)
 	texture:SetTexture(nil)
 	textures[texture] = true
 end
@@ -586,17 +590,20 @@ function ns:getTempStatusBar()
 	local statusbar = next(statusbars)
 	if statusbar then
 		statusbars[statusbar] = nil
-		return statusbar
 	else
-		return CreateFrame("StatusBar", nil, ns.frame)
+		statusbar = CreateFrame("statusbar", nil, ns.frame)
 	end
+	statusbar:Hide()
+	statusbar:SetParent(ns.frame)
+	return statusbar
 end
 function ns:freeTempStatusBar(statusbar)
-
-	if not statusbar then return end
 	
+	if not statusbar then return end
+
 	statusbar:Hide()
 	statusbar:ClearAllPoints()
+	statusbar:SetParent(ns.frame)
 	statusbar:SetStatusBarTexture(nil)
 	statusbars[statusbar] = true
 end
@@ -699,7 +706,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey
 			bar.segments[i].tick:SetWidth(1)
 			bar.segments[i].tick:SetTexture(unpack(tickColor))
 			bar.segments[i].tick:SetBlendMode(tickBlendMode)		
-			bar.segments[i].tex:SetDrawLayer("OVERLAY", 2)	
+			bar.segments[i].tick:SetDrawLayer("OVERLAY", 2)	
 			
 			if not ticksPastRight then
 				bar.segments[i].tick:Show()
@@ -756,7 +763,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey
 		end
 	end
 	
-	ns:addSpellUpdate(spellbar, bar.id, moveTimedBar)
+	--ns:addSpellUpdate(spellbar, bar.id, moveTimedBar)
 
 	return bar
 end
