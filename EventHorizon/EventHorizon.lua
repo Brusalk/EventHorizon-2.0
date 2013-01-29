@@ -700,8 +700,8 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey
 		if tickKey then -- We actually have ticks we need to show tickSegs for
 		
 			bar.segments[i].tick = ns:getTempTexture()
-			bar.segments[i].tick:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)
-			bar.segments[i].tick:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
+			bar.segments[i].tick:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*tickLayout.top)
+			bar.segments[i].tick:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-tickLayout.bottom))
 			bar.segments[i].tick:SetPoint("RIGHT", bar.segments[i].tex, "RIGHT")
 			bar.segments[i].tick:SetWidth(1)
 			bar.segments[i].tick:SetTexture(unpack(tickColor))
@@ -712,6 +712,8 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey
 				bar.segments[i].tick:Show()
 			end
 		end
+		print("Texture", i, "drawLayer:", bar.segments[i].tex:GetDrawLayer())
+		print("Tick", i, "drawLayer:", bar.segments[i].tick:GetDrawLayer())
 	
 		if ticksPastRight then 
 			bar.segments[i]:SetPoint("RIGHT", spellbar, "RIGHT")
@@ -763,7 +765,7 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey
 		end
 	end
 	
-	--ns:addSpellUpdate(spellbar, bar.id, moveTimedBar)
+	ns:addSpellUpdate(spellbar, bar.id, moveTimedBar)
 
 	return bar
 end
