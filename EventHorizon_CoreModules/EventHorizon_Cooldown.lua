@@ -14,84 +14,54 @@ local moduleKey = "EventHorizon_Cooldown"
 -- [[ Cooldown Locals ]] --
 
 local t = {}
-cooldownInfo = {} -- Indexed by spellbar data. Values are of form [cooldownDuration, textureUsed, cooldownID] or nil if no active
+local cooldownInfo = {} -- Indexed by spellbar data. Values are of form [cooldownDuration, textureUsed, cooldownID] or nil if no active
 -- This way we keep the spellbar namespaces clear from other modules affecting our data by their poor programming skill :)
 -- On a sidenote, being able to use a complex table like spellbars as indicies in a dictionary makes Lua the best programming language EVER!
 local GetSpellCooldown, IsSpellKnown, GetSpellInfo = GetSpellCooldown, IsSpellKnown, GetSpellInfo -- localize our global functions for faster retrieval
-
+t.cooldownInfo = cooldownInfo -- Expose our cooldownInfo table to the module namespace so other addons and stuff can interact with us
 -- [[ Helper Functions ]] --
 
 local function addCooldown(spellbar, cooldownID, start, duration)
-	if not spellbar or not start or not duration then return end
-	--Make sure we have valid inputs and that the newDuration for the cd is longer than the previous
-	local curTime = GetTime()
 	
-	if start + duration == 0 and cooldownInfo[spellbar] and cooldownID == cooldownInfo[spellbar][3] and cooldownInfo[spellbar][1]-curTime > 0 then -- we have a CD to reset
-		ns:removeSpellUpdate(spellbar, "cooldown"..cooldownInfo[spellbar][1])
-		ns:freeTempTexture(cooldownInfo[spellbar][2])
-		cooldownInfo[spellbar] = nil
-		return
-	end
-
-	local newEndTime = duration + start
-	local newDuration = newEndTime - curTime
+	if not (spellbar and cooldownID and start and duration) then return end
 	
-	local gcdStart, gcdDuration = GetSpellCooldown(ns:getConfig("gcdSpellID"))
-	local gcdTime = gcdStart + gcdDuration
-
-	if newEndTime <= gcdTime then return end
-	if cooldownInfo[spellbar] and cooldownInfo[spellbar][1] > start+duration-0.1 and cooldownInfo[spellbar][1] < start+duration+0.1 then return end
+	local info = cooldownInfo[spellbar]
 	
-	local barHeight = spellbar:GetHeight()
-	
-	local texture = ns:getTempTexture(spellbar)
-	texture:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*ns:getLayout("cooldown").top )-- texture init setup
-	texture:SetPoint("LEFT", ns.barAnchor, "LEFT", ns:getPositionByTime(0))
-	texture:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-ns:getLayout("cooldown").bottom))
-	texture:SetDrawLayer("BORDER", 1)
-	texture:SetTexture(ns:getConfig("texture"))
-	texture:SetVertexColor(unpack(ns:getColor("cooldown")))
-	texture:SetBlendMode(ns:getBlendMode("cooldown"))
-	texture:SetWidth(ns:getPositionByTime(newDuration))
-	texture:Show()
-	
-	if cooldownInfo[spellbar] and cooldownInfo[spellbar][1]-curTime > 0 then -- The old cd isn't ticking off in negative land. If it is we can just ignore it
-		ns:removeSpellUpdate(spellbar, "cooldown"..cooldownInfo[spellbar][1])
-		ns:freeTempTexture(cooldownInfo[spellbar][2])
-	end
-	
-	cooldownInfo[spellbar] = {newEndTime, texture, cooldownID}
-
-
-	-- Handle the movement of the bar
-	local past, future, width, timeElapsed = ns.config.past, ns.config.future, ns.config.width - (ns.config.icons and (ns.config.iconWidth < 1 and (ns.config.width-2*ns.config.padding)*ns.config.iconWidth or ns.config.iconWidth)+1 or 0), 0
-	local secondsPerPixel = 0
-	local timeRemaining = newDuration
-	print("Adding cooldown ", cooldownID, " to bar ", spellbar.index, " for ", newDuration, " secs")
-	ns:addSpellUpdate(spellbar, "cooldown"..newEndTime, function(self, elapsed, ...)
-		secondsPerPixel = secondsPerPixel > 0 and secondsPerPixel or (future-past)/width
-		timeElapsed = timeElapsed + elapsed
-		if timeElapsed >= secondsPerPixel*.3 then -- Limit it to only when we need to move more than 1 pixel.
-			timeRemaining = timeRemaining - timeElapsed
-			timeElapsed = 0
-			if timeRemaining > past then -- If the duration's more than the past time. (-3 by default)
-				texture:SetWidth(ns:getPositionByTime(timeRemaining))
-				print(texture:GetWidth())
-			else
-				ns:removeSpellUpdate(spellbar, "cooldown"..newEndTime)
-				ns:freeTempTexture(texture)
+	if info then -- We have a previous cooldown that we need to check. 
+	-- We only update the cooldown if the cooldown gets longer, OR if the cooldownID is the same
+		if info.cooldownID == cooldownID then -- Update this anyway.
+			info.timedBar = ns:updateTimedBar(moduleKey, info.timedBar, start+duration)
+			info.start = start
+			info.duration = duration
+		else -- They're not the same, so we want to show the one that ends the soonest.
+			if info.start + info.duration > start + duration then -- Our new cooldown is actually shorter, so update with that new value
+				info.timedBar = ns:updateTimedBar(moduleKey, info.timedBar, start+duration)
+				info.start = start
+				info.duration = duration	
+				info.cooldownID = cooldownID
+			-- Existing is shorter, so we do nothing.
 			end
 		end
-	end)
+	else -- This is a new cooldown for this spellbar, so we need to set stuff up
+		-- (moduleKey, spellbar, duration, barKey, tickTime, tickKey)
+		cooldownInfo[spellbar] = {}
+		info.timedBar = ns:addTimedBar(moduleKey, spellbar, duration, "cooldown") -- this method and related automatically handle the getConfig settings stuff with the 4th arg.
+		info.start = start
+		info.duration = duration
+		info.cooldownID = cooldownID
+	end
+	
 end
 
 local function cooldownEventHandler(event, ...)
+	local gcdStart, gcdDuration = GetSpellCooldown((GetSpellInfo(ns:getConfig("gcdSpellID"))))
+	local gcdTime = gcdStart + gcdDuration
 	for i, spellbar in ipairs(ns.spellbars.active) do
 		local cooldownIDTable = ns:getSpellbarConfig(spellbar, "cooldown")		
 		cooldownIDTable = type(cooldownIDTable)~= "table" and {cooldownIDTable} or cooldownIDTable
 		for j, cooldownID in ipairs(cooldownIDTable) do
 			local start, duration = GetSpellCooldown(cooldownID)
-			if start and duration and IsSpellKnown(cooldownID) then
+			if start and duration and IsSpellKnown(cooldownID) and start+duration > gcdTime then -- Make sure we're only doing cooldown stuff for cooldowns that are longer than a GCD. (We don't want to show a bar on every spellbar for every GCD)
 				addCooldown(spellbar, cooldownID, start, duration) -- addCooldown handles the actual display order of CDs. Here we only care about the known CDs for the spellbar and pass it on down the line
 			end
 		end			
@@ -105,6 +75,7 @@ local function enable()
 	
 	-- Register our CD event handler
 	ns:registerModuleEvent(moduleKey, cooldownEventHandler, "SPELL_UPDATE_COOLDOWN")
+	cooldownEventHandler("SPELL_UPDATE_COOLDOWN") -- Do all our CD stuff
 	
 end
 
@@ -114,8 +85,7 @@ end
 local function disable()
 	-- Disable all active spellupdates for CDs as they apparently no longer care about us :(
 	for i,spellbar in ipairs(ns.spellbars.index) do -- ipairs is faster than pairs when you have consecutive numbered indicies
-		ns:removeSpellUpdate(spellbar, "cooldown")
-		ns:freeTempTexture(cooldownInfo[spellbar][2])
+		ns:removeTimedBar(moduleKey, cooldownInfo[spellbar])
 		cooldownInfo[spellbar] = nil
 	end
 		
@@ -133,7 +103,7 @@ local function init()
 		return type(spellID)=="number" and spellID > 0
 	end) -- Add cooldown to the recognized newSpell() table, give it a default of empty table (no spellIDs provided) and a validation function for numbers > 0
 	
-	ns:addColor(moduleKey, "cooldown", {1, 1, 1, 0.5})
+	ns:addColor(moduleKey, "cooldown", {1, 1, 1, 0.5}) -- Add the half-transparent white color to the color table using the default color validation function
 	
 	ns:addBlendMode(moduleKey, "cooldown", "BLEND")
 	
@@ -145,30 +115,17 @@ local function init()
 	-- Hook spellbar show/hide
 	
 	ns:hookSpellbarShow(moduleKey, function(spellbar)
-		local gcdStart, gcdDuration = GetSpellCooldown((GetSpellInfo(ns:getConfig("gcdSpellID"))))
-		local gcdTime = gcdStart + gcdDuration
-		local cooldownIDTable = ns:getSpellbarConfig(spellbar, "cooldown")	
-		cooldownIDTable = type(cooldownIDTable)~= "table" and {cooldownIDTable} or cooldownIDTable		
-		for i, cooldownID in ipairs(cooldownIDTable) do
-			local start, duration = GetSpellCooldown(cooldownID)
-			if start+duration > gcdTime and IsSpellKnown(cooldownID) then
-				addCooldown(spellbar, cooldownID, duration) -- addCooldown handles the actual display order of CDs. Here we only care about the known CDs for the spellbar and pass it on down the line
-			end
-		end		
+		cooldownEventHandler("SPELL_UPDATE_COOLDOWN")
 	end)
 	
 	ns:hookSpellbarHide(moduleKey, function(spellbar)
-		ns:removeSpellUpdate(spellbar, "cooldown")
-		if cooldownInfo[spellbar] and cooldownInfo[spellbar][2] then
-			ns:freeTempTexture(cooldownInfo[spellbar][2])
-		end
-		cooldownInfo[spellbar] = nil		
+		ns:removeTimedBar(moduleKey, cooldownInfo[spellbar])
+		cooldownInfo[spellbar] = nil	
 	end)
 	
 	ns:hookSpellbarSettingsUpdate(moduleKey, function(spellbar)
-		if spellbar == ns.spellbars.active[#ns.spellbars.active] then -- This is the last spellbar that's being updated, go through them all easily
-			cooldownEventHandler() -- Just go through all the active spellbars 
-		end
+		if cooldownInfo[spellbar] then	
+			ns:updateTimedBar(moduleKey, cooldownInfo[spellbar].timedBar, "cooldown", cooldownInfo[spellbar].start + cooldownInfo[spellbar].duration)
 	end)
 	
 	-- Don't need to do anything on spellbar creation as we latch onto the spellbar manually
