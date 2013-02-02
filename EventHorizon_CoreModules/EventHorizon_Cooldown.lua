@@ -27,7 +27,7 @@ local function addCooldown(spellbar, cooldownID, start, duration)
 	
 	local info = cooldownInfo[spellbar]
 	
-	if info then -- We have a previous cooldown that we need to check. 
+	if info and info.timedBar and info.start and info.duration then -- We have a previous cooldown that we need to check. 
 	-- We only update the cooldown if the cooldown gets longer, OR if the cooldownID is the same
 		if info.cooldownID == cooldownID then -- Update this anyway.
 			info.timedBar = ns:updateTimedBar(moduleKey, info.timedBar, start+duration)
@@ -45,16 +45,16 @@ local function addCooldown(spellbar, cooldownID, start, duration)
 	else -- This is a new cooldown for this spellbar, so we need to set stuff up
 		-- (moduleKey, spellbar, duration, barKey, tickTime, tickKey)
 		cooldownInfo[spellbar] = {}
-		info.timedBar = ns:addTimedBar(moduleKey, spellbar, duration, "cooldown") -- this method and related automatically handle the getConfig settings stuff with the 4th arg.
-		info.start = start
-		info.duration = duration
-		info.cooldownID = cooldownID
+		cooldownInfo[spellbar].timedBar = ns:addTimedBar(moduleKey, spellbar, duration, "cooldown") -- this method and related automatically handle the getConfig settings stuff with the 4th arg.
+		cooldownInfo[spellbar].start = start
+		cooldownInfo[spellbar].duration = duration
+		cooldownInfo[spellbar].cooldownID = cooldownID
 	end
 	
 end
 
 local function cooldownEventHandler(event, ...)
-	local gcdStart, gcdDuration = GetSpellCooldown((GetSpellInfo(ns:getConfig("gcdSpellID"))))
+	local gcdStart, gcdDuration = GetSpellCooldown(GetSpellInfo(ns:getConfig("gcdSpellID")))
 	local gcdTime = gcdStart + gcdDuration
 	for i, spellbar in ipairs(ns.spellbars.active) do
 		local cooldownIDTable = ns:getSpellbarConfig(spellbar, "cooldown")		
@@ -75,7 +75,7 @@ local function enable()
 	
 	-- Register our CD event handler
 	ns:registerModuleEvent(moduleKey, cooldownEventHandler, "SPELL_UPDATE_COOLDOWN")
-	cooldownEventHandler("SPELL_UPDATE_COOLDOWN") -- Do all our CD stuff
+	--cooldownEventHandler("SPELL_UPDATE_COOLDOWN") This gets called when the spellbars are shown the first time.
 	
 end
 
@@ -85,7 +85,7 @@ end
 local function disable()
 	-- Disable all active spellupdates for CDs as they apparently no longer care about us :(
 	for i,spellbar in ipairs(ns.spellbars.index) do -- ipairs is faster than pairs when you have consecutive numbered indicies
-		ns:removeTimedBar(moduleKey, cooldownInfo[spellbar])
+		ns:removeTimedBar(moduleKey, cooldownInfo[spellbar].timedBar)
 		cooldownInfo[spellbar] = nil
 	end
 		
@@ -115,17 +115,20 @@ local function init()
 	-- Hook spellbar show/hide
 	
 	ns:hookSpellbarShow(moduleKey, function(spellbar)
-		cooldownEventHandler("SPELL_UPDATE_COOLDOWN")
+		--cooldownEventHandler("SPELL_UPDATE_COOLDOWN")
 	end)
 	
 	ns:hookSpellbarHide(moduleKey, function(spellbar)
-		ns:removeTimedBar(moduleKey, cooldownInfo[spellbar])
-		cooldownInfo[spellbar] = nil	
+		if cooldownInfo[spellbar] then
+			ns:removeTimedBar(moduleKey, cooldownInfo[spellbar])
+			cooldownInfo[spellbar] = nil
+		end
 	end)
 	
 	ns:hookSpellbarSettingsUpdate(moduleKey, function(spellbar)
-		if cooldownInfo[spellbar] then	
+		if cooldownInfo[spellbar] and cooldownInfo[spellbar].timedBar and cooldownInfo[spellbar].start and cooldownInfo[spellbar].duration then	
 			ns:updateTimedBar(moduleKey, cooldownInfo[spellbar].timedBar, "cooldown", cooldownInfo[spellbar].start + cooldownInfo[spellbar].duration)
+		end
 	end)
 	
 	-- Don't need to do anything on spellbar creation as we latch onto the spellbar manually
