@@ -1,11 +1,11 @@
 local DEBUG = true
 local EHN,ns = ...
-
---[[  TESTING FOR CORE FUNCTIONS  ]]--
+--[[
+-- [  TESTING FOR CORE FUNCTIONS  ] --
 ns.Testing = {}
 local f = CreateFrame("frame")
 
---[[ EH:addTimedBar() ]]--
+-- [ EH:addTimedBar() ] --
 --  Test: accuracy
 
 ns.Testing["addTimedBar"] = {
@@ -93,7 +93,7 @@ function ns:FinishTest(testKey, testIndex)
 end
 
 
-
+--]]
 
 
 
