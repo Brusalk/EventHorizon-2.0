@@ -69,15 +69,15 @@ end
 
 local function init()
 
-	ns:addSpellbarConfig(moduleKey, "cooldown", {}, function(spellID)
+	ns:addSpellbarConfig(moduleKey, "cast", {}, function(spellID)
 		return type(spellID)=="number" and spellID > 0
 	end) -- Add cooldown to the recognized newSpell() table, give it a default of empty table (no spellIDs provided) and a validation function for numbers > 0
 	
-	ns:addColor(moduleKey, "cooldown", {1, 1, 1, 0.5}) -- Add the half-transparent white color to the color table using the default color validation function
+	ns:addColor(moduleKey, "cast", {1, 1, 1, 0.5}) -- Add the half-transparent white color to the color table using the default color validation function
 	
-	ns:addBlendMode(moduleKey, "cooldown", "BLEND")
+	ns:addBlendMode(moduleKey, "cast", "BLEND")
 	
-	ns:addLayout(moduleKey, "cooldown", {
+	ns:addLayout(moduleKey, "cast", {
 		top = 0,
 		bottom = 1
 	})
@@ -85,17 +85,14 @@ local function init()
 	-- Hook spellbar show/hide
 	
 	ns:hookSpellbarShow(moduleKey, function(spellbar)
-		cooldownEventHandler("SPELL_UPDATE_COOLDOWN")
+
 	end)
 	
 	ns:hookSpellbarHide(moduleKey, function(spellbar)
-		ns:removeTimedBar(moduleKey, cooldownInfo[spellbar])
-		cooldownInfo[spellbar] = nil	
+
 	end)
 	
 	ns:hookSpellbarSettingsUpdate(moduleKey, function(spellbar)
-		if cooldownInfo[spellbar] then	
-			ns:updateTimedBar(moduleKey, cooldownInfo[spellbar].timedBar, "cooldown", cooldownInfo[spellbar].start + cooldownInfo[spellbar].duration)
 	end)
 	
 	-- Don't need to do anything on spellbar creation as we latch onto the spellbar manually
@@ -109,7 +106,7 @@ end
 -- [[ Registering with EH ]] --
 
 ns:addModule(moduleKey, {
-	description = "Cooldown Functionality for EventHorizon. By Brusalk.",
+	description = "Cast Functionality for EventHorizon. By Brusalk.",
 	defaultState = true, -- On by default
 	onDisable = disable,
 	onEnable = enable,

@@ -31,11 +31,13 @@ local function addCooldown(spellbar, cooldownID, start, duration)
 	-- We only update the cooldown if the cooldown gets longer, OR if the cooldownID is the same
 		if info.cooldownID == cooldownID then -- Update this anyway.
 			info.timedBar = ns:updateTimedBar(moduleKey, info.timedBar, start+duration)
+			print("Updated same bar:", duration)
 			info.start = start
 			info.duration = duration
 		else -- They're not the same, so we want to show the one that ends the soonest.
 			if info.start + info.duration > start + duration then -- Our new cooldown is actually shorter, so update with that new value
 				info.timedBar = ns:updateTimedBar(moduleKey, info.timedBar, start+duration)
+				print("Updated bar:", duration)
 				info.start = start
 				info.duration = duration	
 				info.cooldownID = cooldownID
@@ -45,7 +47,8 @@ local function addCooldown(spellbar, cooldownID, start, duration)
 	else -- This is a new cooldown for this spellbar, so we need to set stuff up
 		-- (moduleKey, spellbar, duration, barKey, tickTime, tickKey)
 		cooldownInfo[spellbar] = {}
-		cooldownInfo[spellbar].timedBar = ns:addTimedBar(moduleKey, spellbar, duration, "cooldown") -- this method and related automatically handle the getConfig settings stuff with the 4th arg.
+		cooldownInfo[spellbar].timedBar = ns:addTimedBar(moduleKey, spellbar, duration, "cooldown", function() cooldownInfo[spellbar] = nil print("Bar",spellbar.index,": End") return end) -- this method and related automatically handle the getConfig settings stuff with the 4th arg.
+		print("Added bar:", duration)
 		cooldownInfo[spellbar].start = start
 		cooldownInfo[spellbar].duration = duration
 		cooldownInfo[spellbar].cooldownID = cooldownID

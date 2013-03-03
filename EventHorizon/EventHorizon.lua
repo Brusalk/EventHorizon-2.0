@@ -170,7 +170,21 @@ local function tableMerge(...)
 	return toReturn -- return everything that's common
 end
 
-
+local executeInFrame = CreateFrame("FRAME")
+local function executeIn(t, fxn)
+	if t <= 0 then
+		fxn()
+	else
+		local tElapsed = t
+		executeInFrame:SetScript("OnUpdate", function(self, elapsed) 
+			tElapsed = tElapsed - elapsed
+			if tElapsed <= 0 then
+				fxn()
+				executeInFrame:SetScript("OnUpdate", nil)
+			end		
+		end)
+	end
+end
 
 -- [[ Built in Validation Functions ]] --
 
@@ -613,11 +627,11 @@ end
 -- [[ Spellbar Functions ]] -- 
 
 -- Add hooked onto the spellbar a bar with given options that moves left with duration duration. If ticks is set to a number, that's the time between ticks hasted and it'll add ticks on that interval.
--- OPERATES UNDER THE ASSUMPTION THAT FRAME SETTINGS DO NOT UPDATE WHILE EXECUTING
-function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey)
+
+function ns:addTimedBar(moduleKey, spellbar, duration, barKey, endFunction, tickTime, tickKey)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a timed bar. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a timed bar while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
-	if not duration or type(duration)~= "number" or not barKey then ns:error("Module " .. moduleKey .. ": Invalid inputs to function addTimedBarSegment(moduleKey, spellbar, duration, layout, blendMode, color, [texture], [ticks]). Please check the API for valid values") return end
+	if not duration or not endFunction or type(duration)~= "number" or not barKey then ns:error("Module " .. moduleKey .. ": Invalid inputs to function addTimedBarSegment(moduleKey, spellbar, duration, layout, blendMode, color, [texture], [ticks]). Please check the API for valid values") return end
 	if tickTime and tickTime == 0 then ns:error("Module " .. moduleKey .. ": Cannot provide 0 for argument tickTime.") return end
 	
 	local layout = ns:getLayout(barKey)
@@ -634,137 +648,128 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey
 		tickColor = ns:getColor(tickKey)
 	end
 
-	local past, future, width, barHeight, anchor, nowLine, left, right = ns.config.past, ns.config.future, spellbar:GetWidth(), spellbar:GetHeight(), ns.barAnchor, spellbar.nowLine, ns.barAnchor:GetLeft(), spellbar:GetRight()
-	local ticksPastRight
+	local past, future, width, barHeight = ns.config.past, ns.config.future, spellbar:GetWidth(), spellbar:GetHeight()
 	local secondsPerPixel = (future-past)/width
 	
 	local bar = { -- The table which holds all the information relevant to the timed bar. It's up to the module which called this to keep track of this table for futher manipulation of the timedBar
 		id = GetTime(), -- Unique time indicating when the timedBar started. Used for addSpellUpdate/removeSpellUpdate
 		barKey = barKey, -- key in config that indicates the key to pass into getLayout, getBlendMode, etc.
-		currentTickElapsed = -past, -- Holds the number in seconds that the current tick has been ticking down. Initialized to -past for the first "fake" tick
+		curTime = GetTime(),
 		duration = duration, -- total duration of all ticks
 		elapsed = 0, -- amount of time elapsed since last onUpdate. Used to limit our updates to only when we have to move stuff one pixel
 		endTime = GetTime() + duration - past, -- The time when the whole timed bar is expected to finish and the last tick passes the barAnchor (NOT NEWLINE)
-		firstVisible = 0, -- this is the tick the update will move to the left. This is incremented every time the current segments goes off the left side
-		lastVisible = nil, -- index of segments that indicates the segment that is the last one visible. segments[lastVisible]+1 is the first tick that is off the right side of the spellbar
-		maxTickWidth = ns:getPositionByNow(type(tickTime)=="number" and tickTime or duration), -- The number of pixels wide a single tick is. 
 		segments = {}, -- table which holds all the segments. The onUpdate iterates through this using first/lastVisible to manipulate the tick values/settings
 		spellbar = spellbar, -- the spellbar which the timedBar is executed on
-		ticks = type(tickTime)=="number" and round(duration/tickTime) or 1, -- total # of ticks
-		tickDuration = type(tickTime)=="number" and tickTime or duration, -- duration of each individual tick in seconds. (In the case of no ticks, this is the total duration
+		ticks = type(tickTime) == "number" and round(duration/tickTime) or 1,
+		tickDuration = type(tickTime) == "number" and tickTime or duration,
 		tickKey = tickKey, -- the key in config that indicates what to pass into getLayout/getBlendMode etc.
-		--tickTime = tickTime, -- time each tick takes
+		tickTime = tickTime, -- time each tick takes
 	}
 
 	-- First "tick" bar. This is a fake tick bar that makes the logic for moving the bars significantly simpler.
-	bar.segments[0] = ns:getTempStatusBar()
-	bar.segments[0]:SetPoint("TOPLEFT", ns.barAnchor, "TOPLEFT")
-	bar.segments[0]:SetPoint("BOTTOMRIGHT", ns.nowLine, "BOTTOMLEFT")
-	bar.segments[0]:SetMinMaxValues(0, -past)
-	bar.segments[0].tex = ns:getTempTexture()
-	bar.segments[0].tex:SetAllPoints(bar.segments[0])
-	bar.segments[0].tex:SetTexture(0,0,0)
-	bar.segments[0].tex:SetAlpha(0)
-	bar.segments[0].tex:SetDrawLayer("ARTWORK", 1)
-	bar.segments[0].tex:Show()
-	bar.segments[0]:SetStatusBarTexture(bar.segments[0].tex)
-	bar.segments[0]:SetStatusBarColor(0,0,0,0)
-	bar.segments[0]:SetValue(-past)
-	bar.segments[0]:Show()
+	bar.segments[0] = ns:getTempTexture()
+	bar.segments[0]:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)
+	bar.segments[0]:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
+	bar.segments[0]:SetTexture(0,0,0)
+	bar.segments[0]:SetAlpha(1)
+	bar.segments[0]:SetDrawLayer("ARTWORK", 1)
+	--bar.segments[0]:Show()
 	
-	bar.segments[0].expectedTickEnd = GetTime() - past -- time based off of GetTime() for when the current tick is expected to end. This is used to minimize error introduced by texture manipulation execution time. 
-	bar.segments[0].tickDuration = type(tickTime)=="number" and tickTime or duration
+	bar.segments[0].startTime = GetTime() -- segment.startTime is the time the segment will start passing the barAnchor
+	bar.segments[0].endTime   = bar.segments[0].startTime - past -- segment.endTime is the time the segment will finish passing the barAnchor
 	
 	for i=1,bar.ticks do
-
-		bar.segments[i] = ns:getTempStatusBar()
+		bar.segments[i] = ns:getTempTexture()
 		bar.segments[i]:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)
 		bar.segments[i]:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
-		bar.segments[i]:SetPoint("LEFT", bar.segments[i-1].tex, "RIGHT")
-		bar.segments[i]:SetWidth(bar.maxTickWidth)
-		bar.segments[i]:SetMinMaxValues(0, bar.tickDuration)
-		bar.segments[i].tex = ns:getTempTexture()
-		bar.segments[i].tex:SetAllPoints(bar.segments[i])
-		bar.segments[i].tex:SetTexture(textureFile or ns:getConfig("texture"))
-		bar.segments[i].tex:SetVertexColor(unpack(color))
-		bar.segments[i].tex:SetBlendMode(blendMode)
-		bar.segments[i].tex:SetDrawLayer("ARTWORK", 1)
-		bar.segments[i].tex:Show()
-		bar.segments[i]:SetStatusBarTexture(bar.segments[i].tex)
-		bar.segments[i]:SetStatusBarColor(unpack(color))
-		bar.segments[i]:SetValue(bar.tickDuration) -- Full width
-		bar.segments[i]:Show()
+		bar.segments[i]:SetTexture(textureFile or ns:getConfig("texture"))
+		bar.segments[i]:SetVertexColor(unpack(color))
+		bar.segments[i]:SetBlendMode(blendMode)
+		bar.segments[i]:SetDrawLayer("ARTWORK", 1)
 		
-		bar.segments[i].expectedTickEnd = bar.segments[i-1].expectedTickEnd + bar.tickDuration
-		bar.segments[i].tickDuration = type(tickTime)=="number" and tickTime or duration
+		bar.segments[i].startTime = bar.segments[i-1].endTime
+		bar.segments[i].endTime   = bar.segments[i].startTime + bar.tickDuration -- We can check to see if a tick is off the right side of the frame by
+																		 -- bar.segments[i].endTime > GetTime() + ns.config.future - ns.config.past
+		bar.segments[i]:Hide()
 		
-		if not ticksPastRight and bar.segments[i]:GetRight() > right then -- This tick is off the right side of the frame. Need to set it's right and hide successive ticks, and set bar.lastVisible to i
-			bar.lastVisible = i
-			ticksPastRight = true
-		end
-
 		if tickKey then -- We actually have ticks we need to show tickSegs for
 		
 			bar.segments[i].tick = ns.frame:CreateTexture()
 			bar.segments[i].tick:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*tickLayout.top)
 			bar.segments[i].tick:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-tickLayout.bottom))
-			bar.segments[i].tick:SetPoint("RIGHT", bar.segments[i].tex, "RIGHT")
+			bar.segments[i].tick:SetPoint("RIGHT", bar.segments[i], "RIGHT")
 			bar.segments[i].tick:SetWidth(1)
 			bar.segments[i].tick:SetTexture(unpack(tickColor))
 			bar.segments[i].tick:SetBlendMode(tickBlendMode)		
 			bar.segments[i].tick:SetDrawLayer("OVERLAY", 2)	
-			
-			if not ticksPastRight then
-				bar.segments[i].tick:Show()
-			end
+			bar.segments[i].tick:Hide()
 		end
-	
-		if ticksPastRight then 
-			bar.segments[i]:SetPoint("RIGHT", spellbar, "RIGHT")
-		end
+		
 	end -- done setting up the textures with the right settings. Now to do the update
+	
 
-	local function moveTimedBar(self, elapsed, ...)
+	print("Start:", bar.curTime)
+	local function moveTimedBar(self, elapsed, ...) -- self is a reference to the spellbar
 		bar.elapsed = bar.elapsed + elapsed
 		if bar.elapsed >= secondsPerPixel then --Limit the hard stuff to only when we have to move at least 1 pixel. 
-			bar.currentTickElapsed = bar.currentTickElapsed - elapsed
 			bar.elapsed = bar.elapsed - elapsed
-			
-			--Move bar.firstVisible left
-			--Check right of bar.firstVisible, if < left, hide bar.firstVisible, increment it, free texture. 
-			--Check width of bar.lastVisible, if > maxTickWidth, show tick texture, increment it, reset points and set static width. 
-			if bar.currentTickElapsed <= 0 then
-				bar.segments[bar.firstVisible].tick = nil -- if there's no actual texture here (nil) then freeTempTexture just ignores it
-				bar.segments[bar.firstVisible].tex = ns:freeTempTexture(bar.segments[bar.firstVisible].tex)
-				ns:freeTempStatusBar(bar.segments[bar.firstVisible])
+			bar.curTime = bar.curTime + elapsed
+			local tmp = 0
+			-- Each bar.segment[i] has a start and end time. 
+			for i, segment in pairs(bar.segments) do
+				local startT  = segment.startTime
+				local endT    = segment.endTime
+				local curT    = bar.curTime
+				local past    = ns.config.past
+				local future  = ns.config.future
+				local barEndT = bar.curTime + future - past
+				if tmp < 0 then
+					print("Segment", i)
+					print("Start  ", startT)
+					print("End    ", endT)
+					print("Cur    ", curT)
+					print("barEnd ", barEndT)
+					tmp = tmp + 1
+				end
 				
-				bar.firstVisible = bar.firstVisible + 1
-				if bar.firstVisible > bar.ticks then -- we have no more ticks. hold the presses.
-					ns:removeSpellUpdate(spellbar, bar.id) -- we've already freed everything we need to free
-					ns:FinishTest("addTimedBar", "all")
-				else
-					bar.segments[bar.firstVisible]:SetPoint("LEFT", ns.barAnchor, "LEFT") -- Set the new next tick to be anchored to the left
-					bar.currentTickElapsed = bar.segments[bar.firstVisible].tickDuration + (bar.segments[bar.firstVisible-1].expectedTickEnd - GetTime()) -- reset the current tick elapsed to the tick time. Offset by how far off our expected tick end is
-					bar.segments[bar.firstVisible].expectedTickEnd = GetTime() + bar.currentTickElapsed -- set our new expectedTickEnd 
-					print("new currentTickElapsed for tick", bar.firstVisible, "is", bar.currentTickElapsed, "modified from", bar.segments[bar.firstVisible].tickDuration)
+				local startPos = ns:getPositionByTime(startT - curT + past)
+				local endPos   = ns:getPositionByTime(endT - curT + past)
+				
+				segment:SetPoint("LEFT", ns.barAnchor, "LEFT", startPos, 0)
+				segment:SetPoint("RIGHT", ns.barAnchor, "LEFT", endPos, 0)
+				--print(i, ":", segment:GetLeft(), segment:GetRight(), segment:GetWidth())
+								
+				if startT < barEndT then
+					-- Show the tick
+					--print("Showing segment", i)
+					segment:Show()
 				end
-			else
-				bar.segments[bar.firstVisible]:SetValue(bar.currentTickElapsed)
-			end
-			
-			if bar.lastVisible and bar.lastVisible <= bar.ticks and bar.segments[bar.lastVisible]:GetWidth() > bar.maxTickWidth+0.5 then -- we need to do some stuff. 0.5 accounts for any odd rounding issues due to half-pixels
-				if bar.segments[bar.lastVisible].tick then bar.segments[bar.lastVisible].tick:Show() end
-				bar.segments[bar.lastVisible]:ClearAllPoints()
-				bar.segments[bar.lastVisible]:SetPoint("TOP", spellbar, "TOP", 0, -barHeight*layout.top)
-				bar.segments[bar.lastVisible]:SetPoint("BOTTOM", spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
-				bar.segments[bar.lastVisible]:SetPoint("LEFT", bar.segments[bar.lastVisible-1].tex, "RIGHT")
-				bar.segments[bar.lastVisible]:SetWidth(bar.maxTickWidth)
-				bar.lastVisible = bar.lastVisible+1
-				if bar.lastVisible <= bar.ticks then
-					bar.segments[bar.lastVisible]:SetPoint("LEFT", bar.segments[bar.lastVisible-1].tex, "RIGHT")
+				
+				if endT < barEndT and bar.tickKey and i > 0 and not segment.tick:IsShown() then
+					-- Show the tick texture
+					print("Showing tick", i)
+					segment.tick:Show()
 				end
-				-- The new last visible is already shown and will just pulled left. Don't need to do anything	
-			end		
+				
+				if endT < curT then
+					print("Deleting segment", i)
+					-- Delete the tick
+					if bar.tickKey  and i > 0 then
+						segment.tick:Hide()
+						bar.segments[i].tick = nil
+					end
+					segment:Hide()				
+					bar.segments[i] = nil
+					
+					if curT >= bar.endTime then
+						-- This was the last tick
+						ns:removeSpellUpdate(spellbar, bar.id)
+					end
+				end
+
+
+
+			end			
 		end
 	end
 	
@@ -773,7 +778,6 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, tickTime, tickKey
 	return bar
 end
 
---- It's adjusting the old CORRECT 3 second tick time with the updated 2 second tick time because it don't know better
 
 
 -- bar: return from ns:addTimedBar()
@@ -782,20 +786,20 @@ end
 function ns:updateTimedBar(moduleKey, bar, newEndTime, newTickTime)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to update a timed bar. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to update a timed bar while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
-	if not newEndTime or type(newEndTime)~= "number" then ns:error("Module " .. moduleKey .. ": Invalid inputs to function updateTimedBar(moduleKey, bar, newEndTime, [newTickTime]). Please check the API for valid values") return end
+	if not newEndTime or type(newEndTime)~= "number" or not bar then ns:error("Module " .. moduleKey .. ": Invalid inputs to function updateTimedBar(moduleKey, bar, newEndTime, [newTickTime]). Please check the API for valid values") return end
 	if newTickTime and newTickTime == 0 then ns:error("Module " .. moduleKey .. ": Cannot provide 0 for argument newTickTime.") return end
 	if newTickTime and not bar.tickKey then ns:error("Module " .. moduleKey .. ": Updating timedBar with no ticks with newTickTime defined. Cannot add ticks to timedBar on update!") return end
-	--[[ 
-		Ticks update their tickTime after the current tick finishes ticking, so we need to update the value and widths of existing ticks PAST firstVisible, and then keep addings ticks until the expectedFinish for that tick is >= the newEndTime
+	--[[for key, val in pairs(bar) do
+		if key ~= "id" and key ~= "barKey" and key ~= "duration" and key ~= "elapsed" and key ~= "endTime" and key ~= "maxTickWidth" and key ~= "segments" and key ~= "spellbar" and key ~= "ticks" and key ~= "tickDuration" and (newTickTime and key ~= "tickKey") and (newTickTime and key ~= "tickTime")then
+			ns:error("Module " .. moduleKey .. ": updateTimedBar argument bar was not of correct format.") 
+			return
+		end
+	end
 	--]]
 	
-	local i
-	local nowLinePos = ns.nowLine:GetRight()
-	--print(bar.segments[bar.firstVisible])
-	--print(bar.segments[bar.firstVisible].expectedTickEnd)
-	local curTickExpectedEnd = bar.segments[bar.firstVisible].expectedTickEnd
+	local i = 1
 	local ticksPastRight
-	local barHeight, right = bar.spellbar:GetHeight(), bar.spellbar:GetRight()
+	local barHeight = bar.spellbar:GetHeight()
 	local layout = ns:getLayout(bar.barKey)
 	local blendMode = ns:getBlendMode(bar.barKey)
 	local color = ns:getColor(bar.barKey)
@@ -803,6 +807,8 @@ function ns:updateTimedBar(moduleKey, bar, newEndTime, newTickTime)
 	local tickLayout
 	local tickBlendMode
 	local tickColor
+	
+	local barEndT = bar.curTime + ns.config.future - ns.config.past 
 	
 	if bar.tickKey then
 		tickLayout = ns:getLayout(bar.tickKey)
@@ -812,124 +818,172 @@ function ns:updateTimedBar(moduleKey, bar, newEndTime, newTickTime)
 	
 	for n, segment in pairs(bar.segments) do
 		print("Checking tick", n)
-		curTickExpectedEnd = curTickExpectedEnd + segment.tickDuration
-		if segment:GetRight() > right then -- Just in case SOMEHOW SOMEONE for SOME REASON manages to have their future value set low enough that the current tick manages to be off the right side of the screen
+		if segment.endTime > barEndT then -- Just in case SOMEHOW SOMEONE for SOME REASON manages to have their future value set low enough that the current tick manages to be off the right side of the screen
 			ticksPastRight = true
 		end
 		
-		if segment:GetRight() > nowLinePos then -- n is the tick index that we have to start iterating from. (Haste only updates after current tick finishes)
-			print("Found it on tick", n)
-			i = n+1
+		if segment.startTime > bar.curTime - ns.config.past then -- n+1 is the tick index that we have to start iterating from. (Haste only updates after current tick finishes)
+		
+			i = n
+			print("Found it on tick", i)
 			break
 		end
 	end
-	--curTickExpectedEnd now holds the time that the tick that's right before where we need to update, is expected to pass barAnchor (NOT NEWLINE)
 	
-	local oldEndTime = bar.endTime
-	bar.duration = bar.duration + (newEndTime - bar.endTime) -- adding onto total duration the difference of the new end time and the old end time
-	--print("New Duration", bar.duration)
-	bar.endTime = newEndTime - ns.config.past -- Since all we care about is when the last tick is going to pass baranchor and not newline, add onto the endTime past
-	bar.maxTickWidth = ns:getPositionByNow(type(newTickTime)=="number" and newTickTime or bar.duration)
-	--bar.ticks will be increased
-	bar.tickDuration = type(newTickTime)=="number" and newTickTime or bar.duration
-	---print("New tickDuration", bar.tickDuration)
+	--[[ 
+	local bar = { -- The table which holds all the information relevant to the timed bar. It's up to the module which called this to keep track of this table for futher manipulation of the timedBar
+		id = GetTime(), -- Unique time indicating when the timedBar started. Used for addSpellUpdate/removeSpellUpdate
+		barKey = barKey, -- key in config that indicates the key to pass into getLayout, getBlendMode, etc.
+		curTime = GetTime(),
+		duration = duration, -- total duration of all ticks
+		elapsed = 0, -- amount of time elapsed since last onUpdate. Used to limit our updates to only when we have to move stuff one pixel
+		endTime = GetTime() + duration - past, -- The time when the whole timed bar is expected to finish and the last tick passes the barAnchor (NOT NEWLINE)
+		segments = {}, -- table which holds all the segments. The onUpdate iterates through this using first/lastVisible to manipulate the tick values/settings
+		spellbar = spellbar, -- the spellbar which the timedBar is executed on
+		ticks = type(tickTime) == "number" and round(duration/tickTime) or 1,
+		tickDuration = type(tickTime) == "number" and tickTime or duration,
+		tickKey = tickKey, -- the key in config that indicates what to pass into getLayout/getBlendMode etc.
+		tickTime = tickTime, -- time each tick takes
+	}
+	--]]
 	
-	while(i > 0) do  -- Iterate through the segments, updating segment:SetWidth(bar.maxTickWidth), segment:SetMinMaxValues(0, bar.tickDuration), segment:SetValue(bar.tickDuration), and while the "expectedTickEnd" of the newly added segment is <= bar.endTime, add in more ticks and appropriate values.
-		curTickExpectedEnd = curTickExpectedEnd + bar.tickDuration
-		--print("curTickExpectedEnd", curTickExpectedEnd, "<=", bar.endTime, curTickExpectedEnd <= bar.endTime)
-		if curTickExpectedEnd <= bar.endTime then -- we're still in the process of adding/updating our segments
-			if bar.segments[i] then
-				bar.segments[i]:SetWidth(bar.maxTickWidth)
-				bar.segments[i]:SetMinMaxValues(0, bar.tickDuration)
-				bar.segments[i]:SetValue(bar.tickDuration)
-				print("Updating ", i, "width/values", bar.maxTickWidth, bar.tickDuration)
-			else
-				print("Adding new tick at index", i)
-				bar.ticks = bar.ticks + 1 -- We've added a new tick so we have to update bar.ticks
-				bar.segments[i] = ns:getTempStatusBar()
-				bar.segments[i]:SetPoint("TOP", bar.spellbar, "TOP", 0, -barHeight*layout.top)
-				bar.segments[i]:SetPoint("BOTTOM", bar.spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
-				bar.segments[i]:SetPoint("LEFT", bar.segments[i-1].tex, "RIGHT")
-				bar.segments[i]:SetWidth(bar.maxTickWidth)
-				bar.segments[i]:SetMinMaxValues(0, bar.tickDuration)
-				bar.segments[i].tex = ns:getTempTexture()
-				bar.segments[i].tex:SetAllPoints(bar.segments[i])
-				bar.segments[i].tex:SetTexture(textureFile or ns:getConfig("texture"))
-				bar.segments[i].tex:SetVertexColor(unpack(color))
-				bar.segments[i].tex:SetBlendMode(blendMode)
-				bar.segments[i].tex:SetDrawLayer("ARTWORK", 1)
-				bar.segments[i].tex:Show()
-				bar.segments[i]:SetStatusBarTexture(bar.segments[i].tex)
-				bar.segments[i]:SetStatusBarColor(unpack(color))
-				bar.segments[i]:SetValue(bar.tickDuration) -- Full width
-				bar.segments[i]:Show()
-
-				if bar.tickKey then -- We actually have ticks we need to show tickSegs for
+	
+	newEndTime = newEndTime - ns.config.past -- Make it so our new endtime is consistent with our start/end times (barAnchor rather than nowLine)
+	
+	local endTimeDiff = newEndTime - bar.endTime
+	bar.duration = bar.duration + endTimeDiff
+	bar.endTime = newEndTime
+	bar.ticks = i
+	bar.tickDuration = type(newTickTime) == "number" and newTickTime or bar.duration
+	bar.tickTime = newTickTime
+	
+	local lastSegment = bar.segments[i-1]
+	while true  do
+		--[[ Cases:
+			bar.segments[i] exists:
+				update .startTime and .endTime
+			
+			bar.segments[i] dnExst:
+				make it
+				increment bar.ticks
 				
-					bar.segments[i].tick = ns.frame:CreateTexture()
-					bar.segments[i].tick:SetPoint("TOP", bar.spellbar, "TOP", 0, -barHeight*tickLayout.top)
-					bar.segments[i].tick:SetPoint("BOTTOM", bar.spellbar, "BOTTOM", 0, barHeight*(1-tickLayout.bottom))
-					bar.segments[i].tick:SetPoint("RIGHT", bar.segments[i].tex, "RIGHT")
-					bar.segments[i].tick:SetWidth(1)
-					bar.segments[i].tick:SetTexture(unpack(tickColor))
-					bar.segments[i].tick:SetBlendMode(tickBlendMode)		
-					bar.segments[i].tick:SetDrawLayer("OVERLAY", 2)	
-					
-					if not ticksPastRight then
-						bar.segments[i].tick:Show()
-					end
-				end
 			
-				if ticksPastRight then 
-					bar.segments[i]:SetPoint("RIGHT", bar.spellbar, "RIGHT")
-				end
-			end -- We now have our segment guarenteed
+			if bar.segments[i].endTime >= bar.endTime break
+			--]]
 			
-			bar.segments[i].expectedTickEnd = bar.segments[i-1].expectedTickEnd + bar.tickDuration
-			bar.segments[i].tickDuration = bar.tickDuration -- Update to the new tick time
+		local segment = bar.segments[i]
+		
+		if segment then
+			segment.startTime = lastSegment.endTime
+			segment.endTime = segment.startTime + bar.tickDuration			
+		else
+			print("Created Tick", i)
+			bar.ticks = bar.ticks + 1
+			bar.segments[i] = ns:getTempTexture()
+			bar.segments[i]:SetPoint("TOP", bar.spellbar, "TOP", 0, -barHeight*layout.top)
+			bar.segments[i]:SetPoint("BOTTOM", bar.spellbar, "BOTTOM", 0, barHeight*(1-layout.bottom))
+			bar.segments[i]:SetTexture(textureFile or ns:getConfig("texture"))
+			bar.segments[i]:SetVertexColor(unpack(color))
+			bar.segments[i]:SetBlendMode(blendMode)
+			bar.segments[i]:SetDrawLayer("ARTWORK", 1)
 			
-			print("Updating tick", i, "with updated expectedTickEnd of", bar.segments[i].expectedTickEnd)
+			bar.segments[i].startTime = bar.segments[i-1].endTime
+			bar.segments[i].endTime   = bar.segments[i].startTime + bar.tickDuration	-- We can check to see if a tick is off the right side of the frame by
+																				-- bar.segments[i].endTime > GetTime() + ns.config.future - ns.config.past
+			bar.segments[i]:Hide()
 			
-			if not ticksPastRight and bar.segments[i]:GetRight() > right then -- This tick is off the right side of the frame. Need to set it's right and hide successive ticks, and set bar.lastVisible to i
-				bar.lastVisible = i
-				ticksPastRight = true
+			print(bar.segments[i].endTime - bar.segments[i].startTime)
+			
+			if bar.tickKey then -- We actually have ticks we need to show tickSegs for
+			
+				bar.segments[i].tick = ns.frame:CreateTexture()
+				bar.segments[i].tick:SetPoint("TOP", bar.spellbar, "TOP", 0, -barHeight*tickLayout.top)
+				bar.segments[i].tick:SetPoint("BOTTOM", bar.spellbar, "BOTTOM", 0, barHeight*(1-tickLayout.bottom))
+				bar.segments[i].tick:SetPoint("RIGHT", bar.segments[i], "RIGHT")
+				bar.segments[i].tick:SetWidth(1)
+				bar.segments[i].tick:SetTexture(unpack(tickColor))
+				bar.segments[i].tick:SetBlendMode(tickBlendMode)		
+				bar.segments[i].tick:SetDrawLayer("OVERLAY", 2)	
+				bar.segments[i].tick:Hide()
 			end
-		else -- We've passed our endTime goal
-			i=-1 -- -1 + 1 = 0 < 1
+
+			segment = bar.segments[i]
+		
 		end
+		
+		if segment.endTime >= bar.endTime then
+			-- delete any unused segments left
+			while true do
+				i = i + 1 -- skip ahead to the next segment
+				
+				segment = bar.segments[i]
+				if not segment then
+					break
+				end
+				
+				-- Delete the tick
+				if bar.tickKey  and i > 0 then
+					segment.tick:Hide()
+					bar.segments[i].tick = nil
+				end
+				segment:Hide()				
+				bar.segments[i] = nil
+					
+			end
+			break
+		end
+		
+		lastSegment = segment
 		i = i + 1
 	end
-
+	
 end
 
+timedBarTest = nil
+function testTickAdd(barIndex)
+	local curTime = GetTime()
+	timedBarTest = ns:addTimedBar("core", ns.spellbars.active[barIndex or 1], 12, "cooldown", function() timedBarTest = nil end, 1.5, "debuff")
+	timedBarTest = ns:addTimedBar("core", ns.spellbars.active[barIndex and barIndex + 1 or 2], 12, "cooldown", function() timedBarTest = nil end, 1.5, "debuff")
+	executeIn(2.5, -- after 2 ticks, we want 4 more ticks of 3 seconds
+		function()
+			timedBarTest = ns:updateTimedBar("core", timedBarTest, curTime + 12, 3)
+		end
+	)
+	--]]
+	
+end
+
+function testAdd(barIndex)
+	local curTime = GetTime()
+	timedBarTest = ns:addTimedBar("core", ns.spellbars.active[barIndex or 1], 12, "cooldown", function() timedBarTest = nil end)
+	timedBarTest = ns:addTimedBar("core", ns.spellbars.active[barIndex and barIndex + 1 or 2], 12, "cooldown", function() timedBarTest = nil end)
+	executeIn(1.5, -- after 2 ticks, we want 4 more ticks of 3 seconds
+		function()
+			timedBarTest = ns:updateTimedBar("core", timedBarTest, curTime + 6)
+		end
+	)
+	
+end
 
 function ns:removeTimedBar(moduleKey, bar)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a timed bar. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
 	if moduleKey ~= "core" and not ns.modules[moduleKey].active then ns:error("Module " .. moduleKey .. " is attempting to add a timed bar while disabled. Please ensure that while disabled a module is not attempting to do anything.") return end
 	
-	--[[local bar = {
-		id = GetTime(),
-		spellbar = spellbar,
-		duration = duration,
-		elapsed = 0,
-		currentTickElapsed = -ns.config.past,
-		barKey = barKey,
-		tickKey = tickKey,
-		tickTime = tickTime,
-		maxTickWidth = 0,
-		segments = {} -- [first visible] is the tick anchored to ns.barAnchor that is currently counting down. [last visible] is the tick that is currently the last shown
-	}--]]
-	
 	for i, segment in pairs(bar.segments) do
-		segment.tick = nil -- if there's no actual texture here (nil) then freeTempTexture just ignores it
-		segment.tex = ns:freeTempTexture(segment.tex)
-		segment = ns:freeTempStatusBar(segment)
+		if bar.tickKey then
+			segment.tick:Hide()
+			segment.tick = nil
+		end
+		segment:Hide()				
+		segment = nil
 	end
 	
 	ns:removeSpellUpdate(bar.spellbar, bar.id) -- we've already freed everything we need to free
 	
 	bar = nil
 end
+
+
 
 
 function ns:addSpellUpdate(spellbar, key, fxn)
@@ -959,7 +1013,11 @@ end
 -- getPositionByTime(t)
 --  t: time in seconds away from 0 to get the position of. -3 would return the position of the beginning of the spellbar by default config. Use this in conjunction with a frame anchored to ns.barAnchor to put stuff on the spellbar.
 function ns:getPositionByTime(t)
-	local past, future, width = ns.config.past, ns.config.future, ns.config.width - (ns.config.icons and (ns.config.iconWidth < 1 and (ns.config.width-2*ns.config.padding)*ns.config.iconWidth or ns.config.iconWidth)+1 or 0)
+	local past, future = ns.config.past, ns.config.future
+	iconWidth = ns.config.padding + (ns.config.icons and (ns.config.iconWidth < 1 and (ns.config.width-2*ns.config.padding)*ns.config.iconWidth or ns.config.iconWidth)+1 or 0)
+	local width = ns.config.width - iconWidth - (ns.config.icons and 1 or 2)*ns.config.padding
+
+	
 	-- each pixel is (future-past)/width seconds long
 	-- the beginning of the bar is the far left, so an input of -3 should return an offset of 0
 	-- a value of 0 would equal 3 s in the future if we recenter the bar around t = -3
@@ -967,7 +1025,10 @@ function ns:getPositionByTime(t)
 end
 
 function ns:getPositionByNow(t) -- Same as ByTime but assumes anchor off of new line.
-	local past, future, width = ns.config.past, ns.config.future, ns.config.width - (ns.config.icons and (ns.config.iconWidth < 1 and (ns.config.width-2*ns.config.padding)*ns.config.iconWidth or ns.config.iconWidth)+1 or 0)
+	local past, future = ns.config.past, ns.config.future
+	iconWidth = ns.config.padding + (ns.config.icons and (ns.config.iconWidth < 1 and (ns.config.width-2*ns.config.padding)*ns.config.iconWidth or ns.config.iconWidth)+1 or 0)
+	local width = ns.config.width - iconWidth - (ns.config.icons and 1 or 2)*ns.config.padding
+
 	-- each pixel is (future-past)/width seconds long
 	-- the beginning of the bar is the nowLine, so an input of -3 should return an offset of -3*(width/(future-past))
 	-- a value of 0 would equal 3 s in the future if we recenter the bar around t = -3
