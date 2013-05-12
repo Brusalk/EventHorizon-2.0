@@ -651,6 +651,8 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, endFunction, tick
 	local past, future, width, barHeight = ns.config.past, ns.config.future, spellbar:GetWidth(), spellbar:GetHeight()
 	local secondsPerPixel = (future-past)/width
 	
+	local lastTick
+	
 	local bar = { -- The table which holds all the information relevant to the timed bar. It's up to the module which called this to keep track of this table for futher manipulation of the timedBar
 		id = GetTime(), -- Unique time indicating when the timedBar started. Used for addSpellUpdate/removeSpellUpdate
 		barKey = barKey, -- key in config that indicates the key to pass into getLayout, getBlendMode, etc.
@@ -707,7 +709,8 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, endFunction, tick
 		
 	end -- done setting up the textures with the right settings. Now to do the update
 	
-
+	local nowLinePos = ns.nowLine:GetLeft() - ns.barAnchor:GetLeft()
+	
 	print("Start:", bar.curTime)
 	local function moveTimedBar(self, elapsed, ...) -- self is a reference to the spellbar
 		bar.elapsed = bar.elapsed + elapsed
@@ -738,7 +741,13 @@ function ns:addTimedBar(moduleKey, spellbar, duration, barKey, endFunction, tick
 				segment:SetPoint("LEFT", ns.barAnchor, "LEFT", startPos, 0)
 				segment:SetPoint("RIGHT", ns.barAnchor, "LEFT", endPos, 0)
 				--print(i, ":", segment:GetLeft(), segment:GetRight(), segment:GetWidth())
-								
+							
+				if endFunction and not bar.segments[i+1] and endPos <= nowLinePos then -- This bar is "done" and it's the last tick
+					print(endPos, nowLinePos)
+					endFunction(spellbar, bar)
+					endFunction = nil -- Only call this once
+				end
+							
 				if startT < barEndT then
 					-- Show the tick
 					--print("Showing segment", i)
@@ -858,7 +867,7 @@ function ns:updateTimedBar(moduleKey, bar, newEndTime, newTickTime)
 	bar.tickTime = newTickTime
 	
 	local lastSegment = bar.segments[i-1]
-	while true  do
+	while true do
 		--[[ Cases:
 			bar.segments[i] exists:
 				update .startTime and .endTime
@@ -939,31 +948,6 @@ function ns:updateTimedBar(moduleKey, bar, newEndTime, newTickTime)
 	
 end
 
-timedBarTest = nil
-function testTickAdd(barIndex)
-	local curTime = GetTime()
-	timedBarTest = ns:addTimedBar("core", ns.spellbars.active[barIndex or 1], 12, "cooldown", function() timedBarTest = nil end, 1.5, "debuff")
-	timedBarTest = ns:addTimedBar("core", ns.spellbars.active[barIndex and barIndex + 1 or 2], 12, "cooldown", function() timedBarTest = nil end, 1.5, "debuff")
-	executeIn(2.5, -- after 2 ticks, we want 4 more ticks of 3 seconds
-		function()
-			timedBarTest = ns:updateTimedBar("core", timedBarTest, curTime + 12, 3)
-		end
-	)
-	--]]
-	
-end
-
-function testAdd(barIndex)
-	local curTime = GetTime()
-	timedBarTest = ns:addTimedBar("core", ns.spellbars.active[barIndex or 1], 12, "cooldown", function() timedBarTest = nil end)
-	timedBarTest = ns:addTimedBar("core", ns.spellbars.active[barIndex and barIndex + 1 or 2], 12, "cooldown", function() timedBarTest = nil end)
-	executeIn(1.5, -- after 2 ticks, we want 4 more ticks of 3 seconds
-		function()
-			timedBarTest = ns:updateTimedBar("core", timedBarTest, curTime + 6)
-		end
-	)
-	
-end
 
 function ns:removeTimedBar(moduleKey, bar)
 	if moduleKey ~= "core" and not ns.modules[moduleKey] then ns:error("Module " .. moduleKey .. " is not recognized and is attempting to add a timed bar. Ensure that the module is enabled and registered with EventHorizon before doing anything else!") return end
