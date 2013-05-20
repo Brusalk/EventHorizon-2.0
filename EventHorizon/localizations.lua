@@ -4,73 +4,73 @@ local localeTable
 local localeFxn = GetLocale
 
 if localeFxn() == "enUS" then -- US English
-	localeTable = {
-		every = "every ",
-	
-	}
-	
+    localeTable = {
+        every = "every ",
+    
+    }
+    
 elseif localeFxn() == "deDE" then -- German localization
-	localeTable = {
-		every = "alle ",
-	
-	}
+    localeTable = {
+        every = "alle ",
+    
+    }
 
 elseif localeFxn() == "enGB" then -- British English
-	localeTable = {
-		every = "every ",
-	
-	}
+    localeTable = {
+        every = "every ",
+    
+    }
 
 elseif localeFxn() == "enES" then -- Spanish (European)
-	localeTable = {
-		every = "cada ",
-	
-	}
+    localeTable = {
+        every = "cada ",
+    
+    }
 
 
 elseif localeFxn() == "esMX" then -- Spanish (Latin American)
-	localeTable = {
-		every = "cada ",
-	
-	}
+    localeTable = {
+        every = "cada ",
+    
+    }
 
 
 elseif localeFxn() == "frFr" then -- French
-	localeTable = {
-		every = "les ",
-	
-	}
+    localeTable = {
+        every = "les ",
+    
+    }
 --[[
 elseif localeFxn() == "koKR" then -- Korean (No kr.wowhead.com :(((
-	localeTable = {
-		every = nil,
-	
-	}
+    localeTable = {
+        every = nil,
+    
+    }
 
 
 elseif localeFxn() == "ruRU" then -- Russian
-	localeTable = {
-		every = "? ",
-	
-	}
+    localeTable = {
+        every = "? ",
+    
+    }
 
 
 elseif localeFxn() == "zhCN" then -- Chinese (simplified)
-	localeTable = {
-		every = nil,
-	
-	}
+    localeTable = {
+        every = nil,
+    
+    }
 
 
 elseif localeFxn() == "zhTW" then -- Chinese (traditional)
-	localeTable = {
-		every = nil,
-	
-	}
+    localeTable = {
+        every = nil,
+    
+    }
 --]]
 else
-	print("EventHorizon: There is no localization for your current locale ".. localeFxn() .. ". If you would be so kind as to help me out I'd be very appreciative. In the mean-time DoT/HoT/Channel ticks will not work!")
-	
+    print("EventHorizon: There is no localization for your current locale ".. localeFxn() .. ". If you would be so kind as to help me out I'd be very appreciative. In the mean-time DoT/HoT/Channel ticks will not work!")
+    
 end
 
 
